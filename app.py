@@ -294,8 +294,7 @@ if page == "📊 Executive Dashboard":
             if not df.empty and "Mesin" in df.columns and "Status_Part" in df.columns:
                 df_m = df[df["Mesin"] == m_name]
                 if not df_m.empty:
-                    latest_row = df_m.iloc[0]
-                    if latest_row["Status_Part"] == "Part NG":
+                    if any(df_m["Status_Part"] == "Part NG"):
                         warna = "#EF4444" # Merah
                         status_teks = "Mesin Rusak (Part NG)"
 
@@ -469,78 +468,90 @@ elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
                                     st.rerun()
 
 # ==========================================
-# 8. FORM 3: INSTALL MACHINE (CEK STOK READY ➔ PASANG KE MESIN)
+# 8. FORM 3: INSTALL MACHINE (BARU SESUAI PERMINTAAN)
 # ==========================================
 elif page == "🟢 Form Install Machine (Ambil Box Ready)":
     st.title("🟢 Form Pemasangan Part ke Mesin (Install Machine)")
-    st.caption("MP melakukan scan barcode part, sistem otomatis mengecek kecocokan Nama & Type di Box Ready (Biru) untuk dipasang ke mesin.")
+    st.caption("MP scan barcode part dari Box Ready, pilih part yang sesuai, isi tanggal & nama MP, lalu pasang ke mesin agar status mesin jadi hijau.")
 
     df_ready_box = df[df["Status_Part"] == "Part Ready"] if not df.empty and "Status_Part" in df.columns else pd.DataFrame()
 
     uploader_key_inst = "uploader_key_inst"
     if uploader_key_inst not in st.session_state: st.session_state[uploader_key_inst] = 0
 
-    uploaded_file_inst = st.file_uploader("📷 Scan Barcode / Foto Part yang Ingin Dipasang", type=["png", "jpg", "jpeg"], key=f"file_inst_{st.session_state[uploader_key_inst]}")
+    uploaded_file_inst = st.file_uploader("📷 1. Scan Barcode / Foto Part dari Box Ready", type=["png", "jpg", "jpeg"], key=f"file_inst_{st.session_state[uploader_key_inst]}")
 
     scanned_sn, scanned_name, scanned_type = "", "", ""
     if uploaded_file_inst is not None:
         image_inst = Image.open(uploaded_file_inst)
-        st.image(image_inst, caption="Foto Barcode/Part Dipindai", width=160)
-        with st.spinner("🔍 Memindai Barcode..."):
+        st.image(image_inst, caption="Foto Barcode Dipindai", width=160)
+        with st.spinner("🔍 Memindai Barcode/Teks..."):
             scanned_name, scanned_type, scanned_sn = extract_text_from_image(image_inst)
-        st.success(f"✅ Terdeteksi: {scanned_name} | Type: {scanned_type} | SN: {scanned_sn}")
+        st.success(f"✅ Terdeteksi dari Scan -> Nama: **{scanned_name}** | Type: **{scanned_type}** | SN: **{scanned_sn}**")
 
-    with st.form("form_install_machine"):
-        col_i1, col_i2 = st.columns(2)
-        with col_i1:
-            tanggal_pasang = st.date_input("Tanggal Pemasangan")
-            mesin_tujuan = st.selectbox("Pilih Mesin Tempat Pemasangan", MACHINE_LIST)
-            
-            nama_part_input = st.text_input("Nama Part (Hasil Scan)", value=scanned_name)
-            type_part_input = st.text_input("Type Part (Hasil Scan)", value=scanned_type)
-        with col_i2:
-            no_seri_input = st.text_input("Nomor Seri / SN (Hasil Scan)", value=scanned_sn)
-            teknisi_pasang = st.text_input("Nama MP / Teknisi yang Memasang")
+    st.markdown("---")
+    st.subheader("📦 Pilih Part yang Tersedia di Box Ready (Biru)")
 
-        submitted_install = st.form_submit_button("🚀 Check & Install ke Mesin")
+    if df_ready_box.empty:
+        st.warning("⚠️ Saat ini tidak ada part yang tersedia (Ready) di dalam Box Ready.")
+    else:
+        box_options = {}
+        for _, r in df_ready_box.iterrows():
+            label = f"SN: {r['No_Seri']} | Nama: {r['Nama_Part']} | Type: {r['Type']}"
+            box_options[label] = r
 
-        if submitted_install:
-            match_found = False
-            matched_item = None
+        selected_box_label = st.selectbox("Pilih Part dari Daftar Box Ready:", list(box_options.keys()))
+        chosen_part = box_options[selected_box_label]
 
-            if not df_ready_box.empty:
-                matched = df_ready_box[
-                    (df_ready_box["Nama_Part"].str.lower() == nama_part_input.lower()) & 
-                    (df_ready_box["Type"].str.lower() == type_part_input.lower())
-                ]
-                if not matched.empty:
-                    match_found = True
-                    matched_item = matched.iloc[0]
+        col_prev1, col_prev2 = st.columns([1, 3])
+        with col_prev1:
+            foto_ready_b64 = str(chosen_part.get("Foto_Base64", "")) if chosen_part.get("Foto_Base64") is not None else ""
+            if foto_ready_b64 and foto_ready_b64 != "None" and len(foto_ready_b64) > 10:
+                try:
+                    st.image(Image.open(io.BytesIO(base64.b64decode(foto_ready_b64))), width=130)
+                except Exception:
+                    pass
+        with col_prev2:
+            st.write(f"**Nama Part:** {chosen_part['Nama_Part']}")
+            st.write(f"**Type:** {chosen_part['Type']}")
+            st.write(f"**Nomor Seri (SN):** {chosen_part['No_Seri']}")
 
-            if not match_found:
-                st.error(f"❌ **Stok di Box Ready Kosong / Tidak Cocok!** Tidak ditemukan part Ready dengan Nama '{nama_part_input}' dan Type '{type_part_input}' di Box Ready. Harap lakukan repair part terlebih dahulu melalui Tim Repair.")
-            else:
-                foto_b64 = str(matched_item.get("Foto_Base64", "")) if matched_item is not None and matched_item.get("Foto_Base64") is not None else ""
-                
-                delete_data_from_supabase(matched_item['ID'])
+        st.markdown("---")
+        st.subheader("✍️ Masukkan Detail Pemasangan ke Mesin")
 
-                payload_installed = {
-                    "tanggal": str(tanggal_pasang),
-                    "mesin": mesin_tujuan,
-                    "kategori": "Installation",
-                    "status_part": "Installed / Normal",
-                    "no_seri": no_seri_input if no_seri_input else matched_item['No_Seri'],
-                    "nama_part": nama_part_input,
-                    "type_part": type_part_input,
-                    "qty": 1,
-                    "teknisi": teknisi_pasang if teknisi_pasang else "-",
-                    "foto_base64": foto_b64
-                }
+        with st.form("form_install_manual"):
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                tanggal_pasang = st.date_input("Tanggal Pemasangan")
+                mesin_tujuan = st.selectbox("Pilih Mesin Tempat Pemasangan", MACHINE_LIST)
+            with col_f2:
+                teknisi_pasang = st.text_input("Nama MP / Teknisi yang Menginstal")
 
-                if insert_data_to_supabase(payload_installed):
-                    st.session_state[uploader_key_inst] += 1
-                    st.toast(f"✨ Stok Box Ready ditemukan, part berhasil dipasang ke {mesin_tujuan}! Mesin kembali Hijau Normal.", icon="✅")
-                    st.rerun()
+            submitted_install = st.form_submit_button("🚀 Input & Pasang ke Mesin (Status Mesin Jadi Hijau)")
+
+            if submitted_install:
+                if not teknisi_pasang:
+                    st.error("❌ Nama MP / Teknisi yang menginstal wajib diisi!")
+                else:
+                    delete_data_from_supabase(chosen_part['ID'])
+
+                    payload_installed = {
+                        "tanggal": str(tanggal_pasang),
+                        "mesin": mesin_tujuan,
+                        "kategori": "Installation",
+                        "status_part": "Installed / Normal",
+                        "no_seri": chosen_part['No_Seri'],
+                        "nama_part": chosen_part['Nama_Part'],
+                        "type_part": chosen_part['Type'],
+                        "qty": int(chosen_part['Qty']),
+                        "teknisi": teknisi_pasang,
+                        "foto_base64": foto_ready_b64
+                    }
+
+                    if insert_data_to_supabase(payload_installed):
+                        st.session_state[uploader_key_inst] += 1
+                        st.toast(f"✨ Part berhasil dipasang ke {mesin_tujuan}! Status mesin sekarang Hijau Normal.", icon="✅")
+                        st.rerun()
 
 # ==========================================
 # 9. AREA KHUSUS ADMIN
