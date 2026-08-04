@@ -218,15 +218,16 @@ st.sidebar.markdown("## ⚡ Executive Control")
 if "admin_unlocked" not in st.session_state:
     st.session_state.admin_unlocked = False
 
+# MENU UTAMA DIKERDASKAN / DIPERINGKAS
 menu_options = [
-    "📊 Executive Dashboard", 
-    "🔴 Form Input Part NG (Mesin Rusak)", 
-    "🛠️ Form Team Repair (Box NG & On Repair)", 
-    "🟢 Form Install Machine (Ambil Box Ready)"
+    "📊 Dashboard", 
+    "🔴 Input Part NG", 
+    "🛠️ Team Repair", 
+    "🟢 Install ke Mesin"
 ]
 
 if st.session_state.admin_unlocked:
-    menu_options.append("🔒 Area Khusus Admin")
+    menu_options.append("🔒 Admin Area")
 
 page = st.sidebar.radio("Pilih Modul:", menu_options)
 
@@ -252,7 +253,7 @@ else:
 # ==========================================
 # 5. DASHBOARD UTAMA
 # ==========================================
-if page == "📊 Executive Dashboard":
+if page == "📊 Dashboard":
     st.title("🛡️ Executive Maintenance")
     st.caption("Monitoring Performa Mesin & Plant Layout Map Real-Time")
     st.markdown("---")
@@ -335,7 +336,7 @@ if page == "📊 Executive Dashboard":
 # ==========================================
 # 6. FORM 1: MP INPUT PART NG (MESIN RUSAK)
 # ==========================================
-elif page == "🔴 Form Input Part NG (Mesin Rusak)":
+elif page == "🔴 Input Part NG":
     st.title("🔴 Input Part NG dari Mesin (Mesin Berhenti)")
     st.caption("Gunakan form ini saat MP menemukan abnormality/kerusakan di mesin dan melepas part NG.")
 
@@ -388,7 +389,7 @@ elif page == "🔴 Form Input Part NG (Mesin Rusak)":
 # ==========================================
 # 7. FORM 2: TEAM REPAIR (DIPISAH: MENUNGGU VS ON REPAIR)
 # ==========================================
-elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
+elif page == "🛠️ Team Repair":
     st.title("🛠️ Ruang Team Repair")
     st.caption("Pemisahan jelas antara part yang menunggu perbaikan dan part yang sedang dikerjakan.")
 
@@ -470,7 +471,7 @@ elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
 # ==========================================
 # 8. FORM 3: INSTALL MACHINE (AMBIL BOX READY)
 # ==========================================
-elif page == "🟢 Form Install Machine (Ambil Box Ready)":
+elif page == "🟢 Install ke Mesin":
     st.title("🟢 Form Pemasangan Part ke Mesin (Install Machine)")
     st.caption("Pilih part yang tersedia di Box Ready, isi tanggal & nama MP, lalu pasang ke mesin agar status mesin jadi hijau.")
 
@@ -546,7 +547,7 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
 # ==========================================
 # 9. AREA KHUSUS ADMIN
 # ==========================================
-elif page == "🔒 Area Khusus Admin":
+elif page == "🔒 Admin Area":
     st.title("🔒 Area Khusus Admin / Supervisor")
     st.success("🔓 Akses Admin Terverifikasi!")
     
