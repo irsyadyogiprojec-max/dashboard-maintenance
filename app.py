@@ -22,13 +22,13 @@ except Exception:
     HAS_OCR = False
 
 # ==========================================
-# 1. KONFIGURASI HALAMAN & CSS DESIGN
+# 1. KONFIGURASI HALAMAN & CSS DESIGN (RESPONSIF KUNCI LAYOUT HP)
 # ==========================================
 st.set_page_config(
     page_title="Executive Maintenance & OEE Dashboard",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="expanded"  # Sidebar terbuka otomatis di kiri
+    initial_sidebar_state="expanded"
 )
 
 st.markdown("""
@@ -86,8 +86,20 @@ st.markdown("""
         padding-bottom: 1rem !important;
         padding-left: 1.2rem !important;
         padding-right: 1.2rem !important;
+        max-width: 100% !important;
     }
     [data-testid="stElementToolbar"] { display: none !important; }
+
+    /* MENGUNCI TAMPILAN SUPAYA TIDAK BERUBAH DI HP */
+    @media (max-width: 768px) {
+        .row-widget.stHorizontal {
+            flex-direction: row !important;
+        }
+        [data-testid="column"] {
+            flex: 1 !important;
+            min-width: unset !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -206,7 +218,7 @@ def extract_text_from_image(image):
 # ==========================================
 # 4. SIDEBAR SEBAGAI MAIN MENU DI KIRI
 # ==========================================
-st.sidebar.markdown("## ⚡ AI Workspace")
+st.sidebar.markdown("## ⚡ Executive Workspace")
 st.sidebar.caption("Executive Maintenance System")
 st.sidebar.markdown("---")
 
@@ -222,7 +234,6 @@ selected_menu = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 
-# Admin Control di Sidebar bagian bawah
 if "admin_unlocked" not in st.session_state:
     st.session_state.admin_unlocked = False
 
@@ -259,6 +270,45 @@ if not st.session_state.admin_unlocked:
         col2.metric("📦 Box Ready (Biru)", f"{total_ready} Unit")
         col3.metric("⚠️ Mesin NG / Rusak", f"{part_ng} Mesin")
         col4.metric("📈 OEE", "84.2%", delta="1.7% MoM")
+
+        st.markdown("---")
+
+        # --- GRAFIK & PIE CHART ANALITIK ---
+        if not df.empty and "Status_Part" in df.columns:
+            st.subheader("📊 Analitik Status Sparepart")
+            col_chart1, col_chart2 = st.columns(2)
+
+            with col_chart1:
+                status_counts = df["Status_Part"].value_counts().reset_index()
+                status_counts.columns = ["Status", "Jumlah"]
+                fig_pie = px.pie(
+                    status_counts, names="Status", values="Jumlah", 
+                    title="Distribusi Status Sparepart",
+                    hole=0.4,
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                fig_pie.update_layout(
+                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#F3F4F6"), height=320, margin=dict(t=30, b=10, l=10, r=10)
+                )
+                st.plotly_chart(fig_pie, use_container_width=True)
+
+            with col_chart2:
+                if "Mesin" in df.columns:
+                    mesin_counts = df["Mesin"].value_counts().reset_index()
+                    mesin_counts.columns = ["Mesin", "Jumlah"]
+                    fig_bar = px.bar(
+                        mesin_counts, x="Mesin", y="Jumlah",
+                        title="Aktivitas Maintenance per Mesin",
+                        color="Jumlah",
+                        color_continuous_scale="Viridis"
+                    )
+                    fig_bar.update_layout(
+                        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#F3F4F6"), height=320, margin=dict(t=30, b=10, l=10, r=10),
+                        xaxis=dict(tickangle=-25)
+                    )
+                    st.plotly_chart(fig_bar, use_container_width=True)
 
         st.markdown("---")
         st.subheader("🗺️ Plant Layout Map Real-Time")
