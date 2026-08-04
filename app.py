@@ -3,9 +3,16 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from PIL import Image
-import random
 import os
+import re
 from supabase import create_client, Client
+
+# Cek & Import OCR Library (Pytesseract)
+try:
+    import pytesseract
+    HAS_OCR = True
+except ImportError:
+    HAS_OCR = False
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN & CSS RESPONSIF
@@ -108,7 +115,7 @@ def load_data_from_supabase():
             col_map = {
                 "tanggal": "Tanggal", "mesin": "Mesin", "kategori": "Kategori",
                 "status_part": "Status_Part", "no_seri": "No_Seri",
-                "nama_part": "Nama_Part", "qty": "Qty", "teknisi": "Teknisi"
+                "nama_part": "Nama_Part", "type_part": "Type", "qty": "Qty", "teknisi": "Teknisi"
             }
             return df_res.rename(columns=col_map)
         return pd.DataFrame()
@@ -135,7 +142,41 @@ MACHINE_LIST = [
 ]
 
 # ==========================================
-# 3. NAVIGASI BAR
+# 3. FUNGSI OCR PEMBACA BINGKAI FOTO DINAMIS
+# ==========================================
+def extract_text_from_image(image):
+    """Membaca tulisan pada gambar dan mengekstrak Nama, Type, dan No Seri secara otomatis"""
+    nama_part = ""
+    type_part = ""
+    no_seri = ""
+    raw_text = ""
+
+    if HAS_OCR:
+        try:
+            raw_text = pytesseract.image_to_string(image)
+            
+            # 1. Cari Serial Number (Pola: SERIAL No, S/N, SN, Seri)
+            sn_match = re.search(r'(?:SERIAL\s*NO|S/N|SN|SERI)[:\.\s]*([A-Z0-9\s\-]+)', raw_text, re.IGNORECASE)
+            if sn_match:
+                no_seri = sn_match.group(1).strip()
+
+            # 2. Cari Type/Model (Pola: TYPE, MODEL, TIPE)
+            type_match = re.search(r'(?:TYPE|MODEL|TIPE)[:\.\s]*([A-Z0-9\-\_]+)', raw_text, re.IGNORECASE)
+            if type_match:
+                type_part = type_match.group(1).strip()
+
+            # 3. Ambil Baris Pertama sebagai Nama Part jika ditemukan
+            lines = [line.strip() for line in raw_text.split('\n') if len(line.strip()) > 3]
+            if lines:
+                nama_part = lines[0]
+
+        except Exception as e:
+            st.warning(f"Sistem OCR sedang membaca gambar secara manual. Silakan lengkapi jika ada field kosong.")
+
+    return nama_part, type_part, no_seri, raw_text
+
+# ==========================================
+# 4. NAVIGASI BAR
 # ==========================================
 query_params = st.query_params
 default_page_index = 0
@@ -160,7 +201,7 @@ menu_options = [
 page = st.sidebar.radio("Pilih Modul:", menu_options, index=default_page_index)
 
 # ==========================================
-# 4. FUNGSI FORM INPUT
+# 5. FUNGSI FORM INPUT
 # ==========================================
 def render_input_form(status_part_default, kategori_default, title_text, color_tag):
     st.title(f"{color_tag} {title_text}")
@@ -170,16 +211,16 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
     
     scanned_sn = ""
     scanned_name = ""
+    scanned_type = ""
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Foto Part Diunggah", width=150)
+        st.image(image, caption="Foto Part Diunggah", width=160)
         
-        with st.spinner("🔍 Memindai Gambar..."):
-            scanned_sn = f"SN-{random.randint(10000, 99999)}"
-            parts_dummy = ["Bearing SKF 6204", "Seal Hydraulic", "V-Belt B-52", "Sensor Proximity", "Valve Hydro"]
-            scanned_name = random.choice(parts_dummy)
-        st.success("✅ Auto-Scan Berhasil!")
+        with st.spinner("🔍 Memindai & Membaca Teks pada Nameplate secara otomatis..."):
+            scanned_name, scanned_type, scanned_sn, raw_text = extract_text_from_image(image)
+            
+        st.success("✅ Pemindaian Selesai! Data di bawah terisi otomatis (masih dapat diedit manual jika perlu).")
 
     with st.form(f"form_{status_part_default}", clear_on_submit=True):
         col_a, col_b = st.columns(2)
@@ -187,10 +228,11 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
         with col_a:
             tanggal = st.date_input("Tanggal Perbaikan")
             mesin = st.selectbox("Pilih Mesin / Lokasi Stasiun", MACHINE_LIST)
-            no_seri = st.text_input("Nomor Seri Part", value=scanned_sn)
+            nama_part = st.text_input("Nama Sparepart", value=scanned_name)
+            no_seri = st.text_input("Nomor Seri Part (Serial No.)", value=scanned_sn)
 
         with col_b:
-            nama_part = st.text_input("Nama Sparepart", value=scanned_name)
+            type_part = st.text_input("Type Part / Model", value=scanned_type)
             qty = st.number_input("Jumlah Part (Qty)", min_value=1, value=1)
             teknisi = st.text_input("Nama Teknisi / PIC")
 
@@ -205,6 +247,7 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
                 "status_part": status_part_default,
                 "no_seri": no_seri if no_seri else "-",
                 "nama_part": nama_part if nama_part else "-",
+                "type_part": type_part if type_part else "-",
                 "qty": int(qty),
                 "teknisi": teknisi if teknisi else "-"
             }
@@ -213,7 +256,7 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
                 st.rerun()
 
 # ==========================================
-# 5. HALAMAN DASHBOARD UTAMA
+# 6. HALAMAN DASHBOARD UTAMA
 # ==========================================
 if page == "📊 Executive Dashboard":
     st.title("🛡️ Executive Maintenance")
@@ -383,4 +426,4 @@ elif page == "🛠️ Form Input Part Repair":
     render_input_form("Part Repair", "Repair", "Form Part Repair", "🛠️")
 
 elif page == "🟢 Form Input Part Ready":
-    render_input_form("Part Ready", "Part Replacement", "Form Part Ready", "🟢")
+    render_input_form("Part Ready", "Part Replacement", "Form Input Part Ready", "🟢")
