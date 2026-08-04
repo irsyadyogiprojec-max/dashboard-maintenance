@@ -1,10 +1,8 @@
-my_streamlit_app/
-│
-├── app.py                      # Halaman Utama (Home / Launcher)
-├── requirements.txt
-├── layout.png                  # Gambar layout mesin (jika ada)
-└── pages/
-    ├── 1_Dashboard.py          # Link URL akan otomatis: .../1_Dashboard
-    ├── 2_Input_Part_NG.py      # Link URL akan otomatis: .../2_Input_Part_NG
-    ├── 3_Team_Repair.py        # Link URL akan otomatis: .../3_Team_Repair
-    └── 4_Install_Mesin.py      # Link URL akan otomatis: .../4_Install_Mesin
+streamlit
+pandas
+plotly
+pillow
+numpy
+supabase
+easyocr
+qrcode[pil]
