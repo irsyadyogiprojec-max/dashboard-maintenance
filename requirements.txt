@@ -3,4 +3,6 @@ pandas
 plotly
 pillow
 supabase
-pytesseract
+easyocr
+torch
+torchvision
