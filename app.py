@@ -22,13 +22,13 @@ except Exception:
     HAS_OCR = False
 
 # ==========================================
-# 1. KONFIGURASI HALAMAN & CSS GUIDELINE
+# 1. KONFIGURASI HALAMAN & CSS DESIGN
 # ==========================================
 st.set_page_config(
     page_title="Executive Maintenance & OEE Dashboard",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"  # Sidebar terbuka otomatis di kiri
 )
 
 st.markdown("""
@@ -38,38 +38,12 @@ st.markdown("""
         color: #F3F4F6;
     }
     
-    /* Styling khusus untuk Radio Button Navigasi Utama di HP / Desktop */
-    div.row-widget.stRadio > div {
-        flex-direction: row;
-        background: rgba(15, 23, 42, 0.95);
-        padding: 8px 12px;
-        border-radius: 14px;
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-        gap: 10px;
-        overflow-x: auto;
+    /* Styling Sidebar ala Dashboard Modern */
+    [data-testid="stSidebar"] {
+        background-color: rgba(15, 23, 42, 0.95) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
-    div.row-widget.stRadio > div label {
-        background: rgba(30, 41, 59, 0.8);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 10px;
-        padding: 8px 16px;
-        color: #94A3B8;
-        font-weight: 600;
-        cursor: pointer;
-        white-space: nowrap;
-        transition: all 0.3s ease;
-    }
-    div.row-widget.stRadio > div label:hover {
-        background: rgba(37, 99, 235, 0.2);
-        color: #FFFFFF;
-        border-color: rgba(56, 189, 248, 0.5);
-    }
-    /* Sembunyikan lingkaran radio button bawaan agar terlihat seperti tombol menu/tab */
-    div.row-widget.stRadio input[type="radio"] {
-        display: none;
-    }
-
+    
     div[data-testid="metric-container"] {
         background: rgba(30, 41, 59, 0.7) !important;
         border: 1px solid rgba(56, 189, 248, 0.3) !important;
@@ -110,8 +84,8 @@ st.markdown("""
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 1rem !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
+        padding-left: 1.2rem !important;
+        padding-right: 1.2rem !important;
     }
     [data-testid="stElementToolbar"] { display: none !important; }
 </style>
@@ -230,10 +204,25 @@ def extract_text_from_image(image):
     return nama_part, type_part, no_seri
 
 # ==========================================
-# 4. SIDEBAR & ADMIN SYSTEM
+# 4. SIDEBAR SEBAGAI MAIN MENU DI KIRI
 # ==========================================
-st.sidebar.markdown("## ⚡ Executive Control")
+st.sidebar.markdown("## ⚡ AI Workspace")
+st.sidebar.caption("Executive Maintenance System")
+st.sidebar.markdown("---")
 
+selected_menu = st.sidebar.radio(
+    "Navigasi Menu Utama",
+    [
+        "📊 Dashboard", 
+        "🔴 1. Input Part NG", 
+        "🛠️ 2. Team Repair", 
+        "🟢 3. Install ke Mesin"
+    ]
+)
+
+st.sidebar.markdown("---")
+
+# Admin Control di Sidebar bagian bawah
 if "admin_unlocked" not in st.session_state:
     st.session_state.admin_unlocked = False
 
@@ -248,37 +237,10 @@ if show_admin != st.session_state.admin_unlocked:
         st.session_state.admin_unlocked = False
         st.rerun()
 
-st.sidebar.markdown("---")
-st.sidebar.info("💡 **Panduan QR Code:**\nMP cukup scan QR di kotak masing-masing untuk langsung masuk ke halaman tujuan secara otomatis tanpa bingung.")
-
 # ==========================================
-# 5. NAVIGASI UTAMA (MENGGANTI GARIS DENGAN JUDUL HALAMAN KLIK/GESER)
+# 5. KONTEN UTAMA HALAMAN (DI KANAN)
 # ==========================================
-query_params = st.query_params
-target_page = query_params.get("page", "dashboard")
-
-page_options = [
-    "📊 Dashboard", 
-    "🔴 1. Input Part NG", 
-    "🛠️ 2. Team Repair", 
-    "🟢 3. Install ke Mesin"
-]
-
-page_map = {
-    "📊 Dashboard": "dashboard",
-    "🔴 1. Input Part NG": "ng",
-    "🛠️ 2. Team Repair": "repair",
-    "🟢 3. Install ke Mesin": "install"
-}
-
-reverse_page_map = {v: k for k, v in page_map.items()}
-default_selection = reverse_page_map.get(target_page, "📊 Dashboard")
-
 if not st.session_state.admin_unlocked:
-    # Render navigasi judul halaman di bagian paling atas (bisa digeser/diklik di HP)
-    selected_menu = st.radio("Navigasi Alur Utama", page_options, index=page_options.index(default_selection), label_visibility="collapsed")
-    
-    st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
     # ------------------------------------------
     # HALAMAN 1: DASHBOARD
