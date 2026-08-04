@@ -178,7 +178,7 @@ def extract_text_from_image(image):
     return nama_part, type_part, no_seri
 
 # ==========================================
-# 4. NAVIGASI BAR MP & ADMIN TRIGGER
+# 4. NAVIGASI BAR & ADMIN TRIGGER
 # ==========================================
 st.sidebar.markdown("## ⚡ Executive Control")
 
@@ -283,81 +283,62 @@ if page == "📊 Executive Dashboard":
     st.subheader("🗺️ Plant Layout Map Real-Time")
     st.markdown("Indikator Warna: 🔴 **Part NG / Rusak** | 🟠 **Sedang Repair (On Progress)** | 🟢 **Ready / Normal Terpasang**")
 
-    # LOAD GAMBAR LAYOUT SECARA LANGSUNG
+    # MENDETEKSI NAMA FILE GAMBAR DI GITHUB (Termasuk 'layout.png.png')
     folder_saat_ini = os.path.dirname(os.path.abspath(__file__))
-    jalur_gambar = os.path.join(folder_saat_ini, "layout.png")
+    kemungkinan_nama_file = [
+        "layout.png.png", "lay out.PNG.PNG", "lay out.png", "lay out.PNG", 
+        "layout.png", "layout.PNG", "layout.jpg", "layout.jpeg"
+    ]
+    
+    jalur_gambar = None
+    for nama_file in kemungkinan_nama_file:
+        cek_jalur = os.path.join(folder_saat_ini, nama_file)
+        if os.path.exists(cek_jalur):
+            jalur_gambar = cek_jalur
+            break
 
-    if os.path.exists(jalur_gambar):
-        img = Image.open(jalur_gambar)
-        img_width, img_height = img.size
+    if jalur_gambar:
+        st.image(jalur_gambar, caption="Layout Plant Produksi", use_container_width=True)
     else:
-        # Fallback jika file png tidak ketemu, cek jpg
-        jalur_gambar_jpg = os.path.join(folder_saat_ini, "layout.jpg")
-        if os.path.exists(jalur_gambar_jpg):
-            img = Image.open(jalur_gambar_jpg)
-            img_width, img_height = img.size
-        else:
-            img_width, img_height = 1200, 800
-            img = None
+        st.error("⚠️ File gambar layout tidak ditemukan! Pastikan file berada di direktori utama repository GitHub Anda.")
 
-    MACHINE_POSITIONS = {
-        "CRANK SHAFT LINE": {"x": img_width * 0.40, "y": img_height * 0.70},
-        "QC 01": {"x": img_width * 0.22, "y": img_height * 0.70},
-        "ISP-017": {"x": img_width * 0.14, "y": img_height * 0.70},
-        "QC 02": {"x": img_width * 0.30, "y": img_height * 0.70},
-        "CYLINDER HEAD LINE": {"x": img_width * 0.48, "y": img_height * 0.48},
-        "CAM SHAFT LINE": {"x": img_width * 0.28, "y": img_height * 0.35},
-        "QC 1": {"x": img_width * 0.35, "y": img_height * 0.35},
-        "CYLINDER BLOCK LINE": {"x": img_width * 0.48, "y": img_height * 0.18},
-        "Pos QC": {"x": img_width * 0.12, "y": img_height * 0.18}
-    }
-
-    latest_status = {}
-    if not df.empty and "Mesin" in df.columns:
-        for idx, row in df.iterrows():
-            if row["Mesin"] not in latest_status:
-                latest_status[row["Mesin"]] = row["Status_Part"]
-
-    fig_map = go.Figure()
+    st.markdown("---")
+    st.subheader("📊 Analisis Grafik Performa & Status Maintenance")
     
-    if img is not None:
-        fig_map.add_layout_image(dict(
-            source=img, xref="x", yref="y",
-            x=0, y=img_height, sizex=img_width, sizey=img_height,
-            sizing="stretch", opacity=1.0, layer="below"
-        ))
+    if not df.empty:
+        col_g1, col_g2 = st.columns(2)
+        
+        with col_g1:
+            st.markdown("##### 📈 Jumlah Gangguan Berdasarkan Mesin")
+            df_mesin = df["Mesin"].value_counts().reset_index()
+            df_mesin.columns = ["Mesin", "Total"]
+            fig_bar = px.bar(
+                df_mesin, x="Mesin", y="Total", text="Total",
+                color="Total", color_continuous_scale="Viridis"
+            )
+            fig_bar.update_layout(
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#F3F4F6"), height=350, margin=dict(l=10, r=10, t=10, b=10)
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
 
-    for machine_name, pos in MACHINE_POSITIONS.items():
-        status = latest_status.get(machine_name, "Part Ready")
-        if status == "Part NG":
-            color_main, color_glow = "#FF0055", "rgba(255, 0, 85, 0.4)"
-        elif status == "Part Repair":
-            color_main, color_glow = "#FFB703", "rgba(255, 183, 3, 0.4)" # Oren
-        else:
-            color_main, color_glow = "#00F5D4", "rgba(0, 245, 212, 0.35)" # Hijau
+        with col_g2:
+            st.markdown("##### 🥧 Persentase Status Part")
+            if "Status_Part" in df.columns:
+                df_status = df["Status_Part"].value_counts().reset_index()
+                df_status.columns = ["Status_Part", "Total"]
+                fig_pie = px.pie(
+                    df_status, names="Status_Part", values="Total",
+                    hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu
+                )
+                fig_pie.update_layout(
+                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#F3F4F6"), height=350, margin=dict(l=10, r=10, t=10, b=10)
+                )
+                st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        st.info("Belum ada data untuk ditampilkan dalam bentuk grafik.")
 
-        fig_map.add_trace(go.Scatter(
-            x=[pos["x"]], y=[pos["y"]], mode="markers", 
-            marker=dict(size=26, color=color_glow), showlegend=False, hoverinfo="skip"
-        ))
-        fig_map.add_trace(go.Scatter(
-            x=[pos["x"]], y=[pos["y"]], mode="markers+text", 
-            text=[f"<b>{machine_name}</b>"], textposition="top center", 
-            textfont=dict(color="#FFFFFF", size=10), 
-            marker=dict(size=14, color=color_main, line=dict(width=2, color="#FFFFFF")), 
-            showlegend=False,
-            hovertext=f"<b>Mesin:</b> {machine_name}<br><b>Status Part:</b> {status}"
-        ))
-
-    fig_map.update_xaxes(range=[0, img_width], showgrid=False, showticklabels=False, autorange=False)
-    fig_map.update_yaxes(range=[0, img_height], showgrid=False, showticklabels=False, scaleanchor="x", scaleratio=1, autorange=False)
-    fig_map.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
-        height=600, margin=dict(l=0, r=0, t=0, b=0), showlegend=False
-    )
-
-    st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
-    
     st.markdown("---")
     st.subheader("📋 Log Maintenance Terakhir")
     st.dataframe(df, use_container_width=True)
