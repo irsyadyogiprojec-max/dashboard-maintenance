@@ -29,7 +29,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS Tambahan: Menyembunyikan Toolbar Bawaan Tabel (Menghapus Tombol Download & Search Tabel MP)
+# CSS Styling & Keamanan Visual
 st.markdown("""
 <style>
     .stApp {
@@ -94,14 +94,14 @@ st.markdown("""
     }
     hr { border-color: rgba(255, 255, 255, 0.08) !important; margin: 0.8rem 0 !important; }
     
-    /* MENYEMBUNYIKAN TOMBOL DOWNLOAD PADA TABEL UNTUK MP */
+    /* MENYEMBUNYIKAN TOOLBAR / TOMBOL DOWNLOAD TABEL UNTUK MP */
     [data-testid="stElementToolbar"] {
         display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# PIN Admin untuk Fitur Hapus & Download Data
+# PIN Admin
 ADMIN_PIN = "1234"
 
 # ==========================================
@@ -166,7 +166,7 @@ MACHINE_LIST = [
 ]
 
 # ==========================================
-# 3. FUNGSI OCR PEMBACA DINAMIS EASYOCR
+# 3. FUNGSI OCR PEMBACA DINAMIS
 # ==========================================
 def extract_text_from_image(image):
     nama_part = ""
@@ -202,14 +202,15 @@ def extract_text_from_image(image):
     return nama_part, type_part, no_seri
 
 # ==========================================
-# 4. NAVIGASI BAR DENGAN DETEKSI RAHASIA ADMIN
+# 4. NAVIGASI BAR MP & TOMBOL TERSEMBUNYI ADMIN
 # ==========================================
-query_params = st.query_params
-default_page_index = 0
+st.sidebar.markdown("## ⚡ Executive Control")
 
-# Cek apakah URL memiliki parameter ?admin=true
-is_admin_mode = query_params.get("admin") == "true"
+# Session state untuk mengontrol visibilitas Mode Admin
+if "admin_unlocked" not in st.session_state:
+    st.session_state.admin_unlocked = False
 
+# Menu Standar MP
 menu_options = [
     "📊 Executive Dashboard", 
     "🔴 Form Input Part NG", 
@@ -217,21 +218,35 @@ menu_options = [
     "🟢 Form Input Part Ready"
 ]
 
-# Jika URL dibuka oleh Anda (?admin=true), tambahkan menu Admin di Sidebar
-if is_admin_mode:
+# Jika Admin sudah unlock/login, tampilkan menu Admin di pilihan
+if st.session_state.admin_unlocked:
     menu_options.append("🔒 Area Khusus Admin")
 
-if "page" in query_params:
-    param_val = query_params["page"]
-    if param_val == "input_ng":
-        default_page_index = 1
-    elif param_val == "input_repair":
-        default_page_index = 2
-    elif param_val == "input_ready":
-        default_page_index = 3
+page = st.sidebar.radio("Pilih Modul:", menu_options)
 
-st.sidebar.markdown("## ⚡ Executive Control")
-page = st.sidebar.radio("Pilih Modul:", menu_options, index=default_page_index)
+# --- TRIGGER TERSEMBUNYI DI FOOTER SIDEBAR ---
+st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
+
+# Tombol rahasia yang tersamarkan seperti versi sistem
+if not st.session_state.admin_unlocked:
+    if st.sidebar.button("⚙️ System Manage", help="Akses Pengaturan System"):
+        # Membuka Dialog Modal Input PIN
+        @st.dialog("🔒 Verifikasi Admin System")
+        def open_admin_login():
+            pin = st.text_input("Masukkan PIN Khusus Admin System:", type="password")
+            if st.button("Masuk Mode Admin"):
+                if pin == ADMIN_PIN:
+                    st.session_state.admin_unlocked = True
+                    st.success("Akses Diterima! Menu Admin telah diaktifkan.")
+                    st.rerun()
+                else:
+                    st.error("PIN Salah! Akses ditolak.")
+        open_admin_login()
+else:
+    if st.sidebar.button("🔴 Keluar Mode Admin"):
+        st.session_state.admin_unlocked = False
+        st.toast("Anda telah keluar dari Mode Admin.", icon="🔒")
+        st.rerun()
 
 # ==========================================
 # 5. FUNGSI FORM INPUT WITH AUTO RESET
@@ -471,39 +486,34 @@ elif page == "🟢 Form Input Part Ready":
     render_input_form("Part Ready", "Part Replacement", "Form Input Part Ready", "🟢")
 
 # ==========================================
-# 7. AREA KHUSUS ADMIN (HANYA MUNCUL DENGAN URL RAHASIA)
+# 7. AREA KHUSUS ADMIN (HANYA AKTIF JIKA UNLOCKED)
 # ==========================================
 elif page == "🔒 Area Khusus Admin":
     st.title("🔒 Area Khusus Admin / Supervisor")
     st.caption("Fasilitas khusus Admin untuk mengunduh laporan Excel dan menghapus baris data.")
 
-    pin_input = st.text_input("Masukkan PIN Admin", type="password")
-
-    if pin_input == ADMIN_PIN:
-        st.success("🔓 Akses Admin Diterima!")
+    st.success("🔓 Akses Admin Terverifikasi!")
+    
+    if not df.empty:
+        st.subheader("📥 Export / Download Data Database")
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Data Full (CSV / Excel)",
+            data=csv,
+            file_name='maintenance_log_report.csv',
+            mime='text/csv',
+        )
         
-        if not df.empty:
-            st.subheader("📥 Export / Download Data Database")
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download Data Full (CSV / Excel)",
-                data=csv,
-                file_name='maintenance_log_report.csv',
-                mime='text/csv',
-            )
-            
-            st.markdown("---")
+        st.markdown("---")
 
-            st.subheader("🗑️ Kelola & Hapus Data Terpilih")
-            options = {f"ID: {row['ID']} | {row['Tanggal']} | {row['Mesin']} | {row['Nama_Part']} ({row['Status_Part']})": row['ID'] for _, row in df.iterrows()}
-            selected_option = st.selectbox("Pilih Baris Data yang Akan Dihapus:", list(options.keys()))
-            target_id = options[selected_option]
+        st.subheader("🗑️ Kelola & Hapus Data Terpilih")
+        options = {f"ID: {row['ID']} | {row['Tanggal']} | {row['Mesin']} | {row['Nama_Part']} ({row['Status_Part']})": row['ID'] for _, row in df.iterrows()}
+        selected_option = st.selectbox("Pilih Baris Data yang Akan Dihapus:", list(options.keys()))
+        target_id = options[selected_option]
 
-            if st.button("❌ Hapus Data Terpilih"):
-                if delete_data_from_supabase(target_id):
-                    st.toast(f"🗑️ Data dengan ID {target_id} berhasil dihapus!", icon="✅")
-                    st.rerun()
-        else:
-            st.info("Belum ada data di dalam database Supabase.")
-    elif pin_input != "":
-        st.error("🔒 PIN Admin Salah! Silakan coba lagi.")
+        if st.button("❌ Hapus Data Terpilih"):
+            if delete_data_from_supabase(target_id):
+                st.toast(f"🗑️ Data dengan ID {target_id} berhasil dihapus!", icon="✅")
+                st.rerun()
+    else:
+        st.info("Belum ada data di dalam database Supabase.")
