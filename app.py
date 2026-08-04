@@ -37,72 +37,39 @@ st.markdown("""
         background: linear-gradient(135deg, #0B0F19 0%, #111827 50%, #0F172A 100%);
         color: #F3F4F6;
     }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: rgba(30, 41, 59, 0.5);
-        padding: 6px;
-        border-radius: 12px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 45px;
-        background-color: rgba(15, 23, 42, 0.6);
-        border-radius: 8px;
-        color: #94A3B8;
-        font-weight: 600;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(90deg, #2563EB 0%, #7C3AED 100%) !important;
-        color: #FFFFFF !important;
-        font-weight: 700 !important;
-    }
-    /* Styling Alur Navigasi / Breadcrumb Bar */
-    .workflow-container {
-        background: rgba(15, 23, 42, 0.9);
+    
+    /* Styling khusus untuk Radio Button Navigasi Utama di HP / Desktop */
+    div.row-widget.stRadio > div {
+        flex-direction: row;
+        background: rgba(15, 23, 42, 0.95);
+        padding: 8px 12px;
+        border-radius: 14px;
         border: 1px solid rgba(56, 189, 248, 0.3);
-        padding: 12px 16px;
-        border-radius: 12px;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 8px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        gap: 10px;
+        overflow-x: auto;
     }
-    .workflow-title {
-        font-size: 0.85rem;
+    div.row-widget.stRadio > div label {
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 8px 16px;
         color: #94A3B8;
         font-weight: 600;
-        margin-right: 5px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.3s ease;
     }
-    .workflow-steps {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-    }
-    .step-item {
-        font-size: 0.8rem;
-        padding: 4px 10px;
-        border-radius: 6px;
-        background: rgba(30, 41, 59, 0.8);
-        color: #94A3B8;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        font-weight: 500;
-    }
-    .step-item.active {
-        background: linear-gradient(90deg, #2563EB 0%, #7C3AED 100%);
+    div.row-widget.stRadio > div label:hover {
+        background: rgba(37, 99, 235, 0.2);
         color: #FFFFFF;
-        font-weight: 700;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+        border-color: rgba(56, 189, 248, 0.5);
     }
-    .step-arrow {
-        color: #64748B;
-        font-weight: bold;
-        font-size: 0.8rem;
+    /* Sembunyikan lingkaran radio button bawaan agar terlihat seperti tombol menu/tab */
+    div.row-widget.stRadio input[type="radio"] {
+        display: none;
     }
+
     div[data-testid="metric-container"] {
         background: rgba(30, 41, 59, 0.7) !important;
         border: 1px solid rgba(56, 189, 248, 0.3) !important;
@@ -285,57 +252,38 @@ st.sidebar.markdown("---")
 st.sidebar.info("💡 **Panduan QR Code:**\nMP cukup scan QR di kotak masing-masing untuk langsung masuk ke halaman tujuan secara otomatis tanpa bingung.")
 
 # ==========================================
-# 5. CEK URL QUERY PARAMETER UNTUK QR CODE
+# 5. NAVIGASI UTAMA (MENGGANTI GARIS DENGAN JUDUL HALAMAN KLIK/GESER)
 # ==========================================
 query_params = st.query_params
 target_page = query_params.get("page", "dashboard")
 
-tab_index_map = {
-    "dashboard": 0,
-    "ng": 1,
-    "repair": 2,
-    "install": 3
+page_options = [
+    "📊 Dashboard", 
+    "🔴 1. Input Part NG", 
+    "🛠️ 2. Team Repair", 
+    "🟢 3. Install ke Mesin"
+]
+
+page_map = {
+    "📊 Dashboard": "dashboard",
+    "🔴 1. Input Part NG": "ng",
+    "🛠️ 2. Team Repair": "repair",
+    "🟢 3. Install ke Mesin": "install"
 }
-default_tab_idx = tab_index_map.get(target_page, 0)
 
-# ==========================================
-# 6. NAVIGASI UTAMA DENGAN INDIKATOR ALUR LENGKAP
-# ==========================================
+reverse_page_map = {v: k for k, v in page_map.items()}
+default_selection = reverse_page_map.get(target_page, "📊 Dashboard")
+
 if not st.session_state.admin_unlocked:
-    tabs = st.tabs([
-        "📊 Dashboard", 
-        "🔴 1. Input Part NG", 
-        "🛠️ 2. Team Repair", 
-        "🟢 3. Install ke Mesin"
-    ])
+    # Render navigasi judul halaman di bagian paling atas (bisa digeser/diklik di HP)
+    selected_menu = st.radio("Navigasi Alur Utama", page_options, index=page_options.index(default_selection), label_visibility="collapsed")
     
-    tab_dash, tab_ng, tab_repair, tab_install = tabs
-
-    # Helper function untuk HTML Indikator Alur
-    def render_workflow_banner(active_step):
-        steps = ["Dashboard", "1. Input Part NG", "2. Team Repair", "3. Install Mesin"]
-        html_steps = []
-        for i, s in enumerate(steps):
-            is_active = (s == active_step)
-            css_cls = "step-item active" if is_active else "step-item"
-            html_steps.append(f'<div class="{css_cls}">{s}</div>')
-            if i < len(steps) - 1:
-                html_steps.append('<div class="step-arrow">➔</div>')
-        
-        steps_joined = "".join(html_steps)
-        st.markdown(f"""
-        <div class="workflow-container">
-            <div class="workflow-title">📍 Alur Kerja Sistem:</div>
-            <div class="workflow-steps">{steps_joined}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
     # ------------------------------------------
-    # TAB 1: DASHBOARD
+    # HALAMAN 1: DASHBOARD
     # ------------------------------------------
-    with tab_dash:
-        render_workflow_banner("Dashboard")
-
+    if selected_menu == "📊 Dashboard":
         st.title("🛡️ Executive Maintenance")
         st.caption("Monitoring Performa Mesin & Plant Layout Map Real-Time")
         st.markdown("---")
@@ -416,11 +364,9 @@ if not st.session_state.admin_unlocked:
         st.dataframe(df_display, use_container_width=True)
 
     # ------------------------------------------
-    # TAB 2: INPUT PART NG (LANGKAH 1)
+    # HALAMAN 2: INPUT PART NG
     # ------------------------------------------
-    with tab_ng:
-        render_workflow_banner("1. Input Part NG")
-
+    elif selected_menu == "🔴 1. Input Part NG":
         st.title("🔴 Input Part NG dari Mesin (Mesin Berhenti)")
         st.caption("Gunakan form ini saat MP menemukan abnormality/kerusakan di mesin dan melepas part NG.")
 
@@ -471,11 +417,9 @@ if not st.session_state.admin_unlocked:
                     st.rerun()
 
     # ------------------------------------------
-    # TAB 3: TEAM REPAIR (LANGKAH 2)
+    # HALAMAN 3: TEAM REPAIR
     # ------------------------------------------
-    with tab_repair:
-        render_workflow_banner("2. Team Repair")
-
+    elif selected_menu == "🛠️ 2. Team Repair":
         st.title("🛠️ Ruang Team Repair")
         st.caption("Pemisahan jelas antara part yang menunggu perbaikan dan part yang sedang dikerjakan.")
 
@@ -553,11 +497,9 @@ if not st.session_state.admin_unlocked:
                                         st.rerun()
 
     # ------------------------------------------
-    # TAB 4: INSTALL KE MESIN (LANGKAH 3)
+    # HALAMAN 4: INSTALL KE MESIN
     # ------------------------------------------
-    with tab_install:
-        render_workflow_banner("3. Install Mesin")
-
+    elif selected_menu == "🟢 3. Install ke Mesin":
         st.title("🟢 Form Pemasangan Part ke Mesin (Install Machine)")
         st.caption("Pilih part yang tersedia di Box Ready, isi tanggal & nama MP, lalu pasang ke mesin agar status mesin jadi hijau.")
 
@@ -630,7 +572,7 @@ if not st.session_state.admin_unlocked:
                             st.rerun()
 
 # ==========================================
-# 7. AREA KHUSUS ADMIN
+# 6. AREA KHUSUS ADMIN
 # ==========================================
 else:
     st.title("🔒 Area Khusus Admin / Supervisor")
