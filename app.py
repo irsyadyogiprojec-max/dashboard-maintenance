@@ -264,9 +264,6 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
 # ==========================================
 # 6. DASHBOARD UTAMA
 # ==========================================
-# ==========================================
-# 6. DASHBOARD UTAMA
-# ==========================================
 if page == "📊 Executive Dashboard":
     st.title("🛡️ Executive Maintenance")
     st.caption("Monitoring Performa Mesin & Plant Layout Map Real-Time")
@@ -301,12 +298,9 @@ if page == "📊 Executive Dashboard":
             break
 
     if jalur_gambar:
-        # Buka gambar untuk mendapatkan ukuran piksel aslinya
         img_pil = Image.open(jalur_gambar)
         img_width, img_height = img_pil.size
 
-        # Mapping posisi koordinat mesin di atas gambar layout (Skala Piksel Gambar)
-        # Anda bisa menyesuaikan angka X dan Y ini jika posisi titiknya ingin digeser
         koordinat_mesin = {
             "CRANK SHAFT LINE": {"x": img_width * 0.5, "y": img_height * 0.5},
             "CYLINDER HEAD LINE": {"x": img_width * 0.5, "y": img_height * 0.3},
@@ -318,10 +312,7 @@ if page == "📊 Executive Dashboard":
             "Pos QC": {"x": img_width * 0.3, "y": img_height * 0.7},
         }
 
-        # Tentukan status warna setiap mesin berdasarkan database
-        status_warna_default = "green" # Hijau (Ready)
         marker_data = []
-
         for m_name, pos in koordinat_mesin.items():
             warna = "#22C55E" # Default Hijau
             status_teks = "Ready / Normal"
@@ -347,22 +338,29 @@ if page == "📊 Executive Dashboard":
 
         df_marker = pd.DataFrame(marker_data)
 
-        # Buat Plotly Figure dengan background gambar layout
         fig_layout = go.Figure()
 
-        # Tambahkan scatter plot titik indikator di atas gambar
+        # Scatter plot titik indikator dengan teks kontras tinggi (huruf tebal & outline hitam)
         fig_layout.add_trace(go.Scatter(
             x=df_marker["x"],
             y=df_marker["y"],
             mode="markers+text",
             text=df_marker["Mesin"],
             textposition="top center",
-            marker=dict(size=16, color=df_marker["color"], line=dict(width=2, color="white")),
+            textfont=dict(
+                size=12,
+                color="#FFFFFF",
+                family="Arial Black, sans-serif"
+            ),
+            marker=dict(
+                size=16, 
+                color=df_marker["color"], 
+                line=dict(width=2, color="#000000")
+            ),
             hovertext=df_marker["status"],
             hoverinfo="text+name"
         ))
 
-        # Konfigurasi layout gambar agar pas sebagai background peta
         fig_layout.update_layout(
             images=[dict(
                 source=img_pil,
@@ -374,7 +372,7 @@ if page == "📊 Executive Dashboard":
                 layer="below"
             )],
             xaxis=dict(showgrid=False, zeroline=False, range=[0, img_width], visible=False),
-            yaxis=dict(showgrid=False, zeroline=False, range=[img_height, 0], visible=False), # Dibalik agar koordinat Y pas dari atas ke bawah
+            yaxis=dict(showgrid=False, zeroline=False, range=[img_height, 0], visible=False),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             height=600,
