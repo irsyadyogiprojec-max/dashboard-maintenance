@@ -56,30 +56,52 @@ st.markdown("""
         color: #FFFFFF !important;
         font-weight: 700 !important;
     }
-    .workflow-box {
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid rgba(56, 189, 248, 0.2);
+    /* Styling Alur Navigasi / Breadcrumb Bar */
+    .workflow-container {
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(56, 189, 248, 0.3);
         padding: 12px 16px;
-        border-radius: 10px;
+        border-radius: 12px;
         margin-bottom: 16px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         flex-wrap: wrap;
-        gap: 10px;
-        font-size: 0.9rem;
+        gap: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
-    .workflow-step {
+    .workflow-title {
+        font-size: 0.85rem;
         color: #94A3B8;
-        font-weight: 500;
+        font-weight: 600;
+        margin-right: 5px;
     }
-    .workflow-step.active {
-        color: #38BDF8;
-        font-weight: 700;
-        background: rgba(56, 189, 248, 0.1);
+    .workflow-steps {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .step-item {
+        font-size: 0.8rem;
         padding: 4px 10px;
         border-radius: 6px;
-        border: 1px solid rgba(56, 189, 248, 0.3);
+        background: rgba(30, 41, 59, 0.8);
+        color: #94A3B8;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        font-weight: 500;
+    }
+    .step-item.active {
+        background: linear-gradient(90deg, #2563EB 0%, #7C3AED 100%);
+        color: #FFFFFF;
+        font-weight: 700;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+    }
+    .step-arrow {
+        color: #64748B;
+        font-weight: bold;
+        font-size: 0.8rem;
     }
     div[data-testid="metric-container"] {
         background: rgba(30, 41, 59, 0.7) !important;
@@ -260,7 +282,7 @@ if show_admin != st.session_state.admin_unlocked:
         st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.info("💡 **Panduan QR Code:**\nMP cukup scan QR di kotak masing-masing untuk langsung masuk ke halaman tujuan secara otomatis tanpa klik.")
+st.sidebar.info("💡 **Panduan QR Code:**\nMP cukup scan QR di kotak masing-masing untuk langsung masuk ke halaman tujuan secara otomatis tanpa bingung.")
 
 # ==========================================
 # 5. CEK URL QUERY PARAMETER UNTUK QR CODE
@@ -268,7 +290,6 @@ st.sidebar.info("💡 **Panduan QR Code:**\nMP cukup scan QR di kotak masing-mas
 query_params = st.query_params
 target_page = query_params.get("page", "dashboard")
 
-# Mapping index tab berdasarkan parameter URL
 tab_index_map = {
     "dashboard": 0,
     "ng": 1,
@@ -278,10 +299,9 @@ tab_index_map = {
 default_tab_idx = tab_index_map.get(target_page, 0)
 
 # ==========================================
-# 6. NAVIGASI UTAMA DENGAN AUTO-FOCUS QR CODE
+# 6. NAVIGASI UTAMA DENGAN INDIKATOR ALUR LENGKAP
 # ==========================================
 if not st.session_state.admin_unlocked:
-    # Membuat tab dengan index aktif otomatis sesuai QR Code yang diskan
     tabs = st.tabs([
         "📊 Dashboard", 
         "🔴 1. Input Part NG", 
@@ -291,16 +311,30 @@ if not st.session_state.admin_unlocked:
     
     tab_dash, tab_ng, tab_repair, tab_install = tabs
 
+    # Helper function untuk HTML Indikator Alur
+    def render_workflow_banner(active_step):
+        steps = ["Dashboard", "1. Input Part NG", "2. Team Repair", "3. Install Mesin"]
+        html_steps = []
+        for i, s in enumerate(steps):
+            is_active = (s == active_step)
+            css_cls = "step-item active" if is_active else "step-item"
+            html_steps.append(f'<div class="{css_cls}">{s}</div>')
+            if i < len(steps) - 1:
+                html_steps.append('<div class="step-arrow">➔</div>')
+        
+        steps_joined = "".join(html_steps)
+        st.markdown(f"""
+        <div class="workflow-container">
+            <div class="workflow-title">📍 Alur Kerja Sistem:</div>
+            <div class="workflow-steps">{steps_joined}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
     # ------------------------------------------
     # TAB 1: DASHBOARD
     # ------------------------------------------
     with tab_dash:
-        st.markdown("""
-        <div class="workflow-box">
-            <div>📍 <b>Posisi Anda:</b> <span class="workflow-step active">Dashboard Utama & Monitoring Layout</span></div>
-            <div>👉 <i>Scan QR:</i> Scan QR di Kotak Part NG atau Kotak Repair untuk langsung menuju halaman terkait.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        render_workflow_banner("Dashboard")
 
         st.title("🛡️ Executive Maintenance")
         st.caption("Monitoring Performa Mesin & Plant Layout Map Real-Time")
@@ -385,12 +419,7 @@ if not st.session_state.admin_unlocked:
     # TAB 2: INPUT PART NG (LANGKAH 1)
     # ------------------------------------------
     with tab_ng:
-        st.markdown("""
-        <div class="workflow-box">
-            <div>📍 <b>Posisi Anda (Dari QR Code Kotak Part NG):</b> <span class="workflow-step active">Input Part NG (Mesin Berhenti/Rusak)</span></div>
-            <div>👉 <i>Panduan:</i> Upload foto part rusak / label, sistem akan auto-scan lalu simpan ke sistem.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        render_workflow_banner("1. Input Part NG")
 
         st.title("🔴 Input Part NG dari Mesin (Mesin Berhenti)")
         st.caption("Gunakan form ini saat MP menemukan abnormality/kerusakan di mesin dan melepas part NG.")
@@ -445,12 +474,7 @@ if not st.session_state.admin_unlocked:
     # TAB 3: TEAM REPAIR (LANGKAH 2)
     # ------------------------------------------
     with tab_repair:
-        st.markdown("""
-        <div class="workflow-box">
-            <div>📍 <b>Posisi Anda (Dari QR Code Team Repair):</b> <span class="workflow-step active">Team Repair (Perbaikan Part)</span></div>
-            <div>👉 <i>Panduan:</i> Pilih part yang masuk untuk mulai perbaikan atau selesaikan repair.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        render_workflow_banner("2. Team Repair")
 
         st.title("🛠️ Ruang Team Repair")
         st.caption("Pemisahan jelas antara part yang menunggu perbaikan dan part yang sedang dikerjakan.")
@@ -532,12 +556,7 @@ if not st.session_state.admin_unlocked:
     # TAB 4: INSTALL KE MESIN (LANGKAH 3)
     # ------------------------------------------
     with tab_install:
-        st.markdown("""
-        <div class="workflow-box">
-            <div>📍 <b>Posisi Anda (Dari QR Code Install):</b> <span class="workflow-step active">Install ke Mesin (Pemasangan Part Ready)</span></div>
-            <div>👉 <i>Panduan:</i> Pilih part dari Box Ready lalu pasang kembali ke mesin.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        render_workflow_banner("3. Install Mesin")
 
         st.title("🟢 Form Pemasangan Part ke Mesin (Install Machine)")
         st.caption("Pilih part yang tersedia di Box Ready, isi tanggal & nama MP, lalu pasang ke mesin agar status mesin jadi hijau.")
