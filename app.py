@@ -143,6 +143,19 @@ def insert_data_to_supabase(record):
         st.error(f"Gagal menyimpan ke database: {e}")
         return False
 
+def update_status_in_supabase(row_id, new_status, new_teknisi=""):
+    if supabase is None:
+        return False
+    try:
+        update_data = {"status_part": new_status}
+        if new_teknisi:
+            update_data["teknisi"] = new_teknisi
+        supabase.table("maintenance_log").update(update_data).eq("id", row_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Gagal memperbarui status: {e}")
+        return False
+
 def delete_data_from_supabase(row_id):
     if supabase is None:
         return False
@@ -205,7 +218,7 @@ if "admin_unlocked" not in st.session_state:
 menu_options = [
     "📊 Executive Dashboard", 
     "🔴 Form Input Part NG (Mesin Rusak)", 
-    "🛠️ Form Team Repair (Box NG ➔ Box Ready)", 
+    "🛠️ Form Team Repair (Box NG & On Repair)", 
     "🟢 Form Install Machine (Ambil Box Ready)"
 ]
 
@@ -246,7 +259,7 @@ if page == "📊 Executive Dashboard":
     total_ready = len(df[df["Status_Part"] == "Part Ready"]) if not df.empty and "Status_Part" in df.columns else 0
     part_ng = len(df[df["Status_Part"] == "Part NG"]) if not df.empty and "Status_Part" in df.columns else 0
 
-    col1.metric("🛠️ On Repair (Box NG)", f"{total_repair} Unit")
+    col1.metric("🛠️ On Repair (Kuning)", f"{total_repair} Unit")
     col2.metric("📦 Box Ready (Biru)", f"{total_ready} Unit")
     col3.metric("⚠️ Mesin NG / Rusak", f"{part_ng} Mesin")
     col4.metric("📈 OEE", "84.2%", delta="1.7% MoM")
@@ -276,10 +289,8 @@ if page == "📊 Executive Dashboard":
             status_teks = "Normal / Beroperasi"
             
             if not df.empty and "Mesin" in df.columns and "Status_Part" in df.columns:
-                # Cek apakah mesin ini memiliki part berstatus "Part NG" yang belum di-install ulang
                 df_m = df[df["Mesin"] == m_name]
                 if not df_m.empty:
-                    # Ambil log terbaru untuk mesin ini
                     latest_row = df_m.iloc[0]
                     if latest_row["Status_Part"] == "Part NG":
                         warna = "#EF4444" # Merah
@@ -373,74 +384,89 @@ elif page == "🔴 Form Input Part NG (Mesin Rusak)":
                 st.rerun()
 
 # ==========================================
-# 7. FORM 2: TEAM REPAIR (AMBIL BOX NG ➔ REPAIR ➔ MASUK BOX READY)
+# 7. FORM 2: TEAM REPAIR (DIPISAH: MENUNGGU VS ON REPAIR)
 # ==========================================
-elif page == "🛠️ Form Team Repair (Box NG ➔ Box Ready)":
+elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
     st.title("🛠️ Ruang Team Repair")
-    st.caption("Tim repair mengambil part rusak dari Box NG, melakukan perbaikan, lalu memasukkannya ke Box Ready (Biru).")
+    st.caption("Pemisahan jelas antara part yang menunggu perbaikan dan part yang sedang dikerjakan.")
 
     if df.empty or "Status_Part" not in df.columns:
         st.info("Belum ada data sparepart di database.")
     else:
-        df_box_ng = df[df["Status_Part"].isin(["Part NG", "Part Repair"])]
-        
-        if df_box_ng.empty:
-            st.success("🎉 Tidak ada part rusak di Box NG saat ini.")
-        else:
-            part_options = {f"SN: {row['No_Seri']} | {row['Nama_Part']} (Mesin Asal: {row['Mesin']})": row for _, row in df_box_ng.iterrows()}
-            
-            selected_label = st.selectbox("🔍 Pilih Part dari Box NG untuk Diperbaiki:", list(part_options.keys()))
-            
-            if st.button("📌 Muat Part untuk Repair"):
-                st.session_state["active_repair_item"] = part_options[selected_label]
-                st.success("✅ Part dimuat ke meja repair.")
+        # Buat 2 Tab agar tidak tercampur
+        tab_menunggu, tab_repair = st.tabs(["⏳ Part Menunggu Repair (Box NG)", "🛠️ Part Sedang Di-Repair (On Progress)"])
 
-            if "active_repair_item" in st.session_state and st.session_state["active_repair_item"] is not None:
-                item = st.session_state["active_repair_item"]
+        # --- TAB 1: PART MENUNGGU REPAIR ---
+        with tab_menunggu:
+            st.subheader("📋 Daftar Part Menunggu Perbaikan")
+            df_menunggu = df[df["Status_Part"] == "Part NG"]
 
-                st.markdown("---")
-                col_r1, col_r2 = st.columns(2)
-                
-                with col_r1:
-                    st.info(f"""
-                    * **Nama Part:** {item['Nama_Part']}
-                    * **Type:** {item['Type']}
-                    * **Serial No:** {item['No_Seri']}
-                    * **Mesin Asal:** {item['Mesin']}
-                    """)
-                    
-                    foto_b64 = item.get("Foto_Base64", "")
-                    if foto_b64 and len(foto_b64) > 10:
-                        try:
-                            st.image(Image.open(io.BytesIO(base64.b64decode(foto_b64))), caption="Foto Part NG", width=220)
-                        except Exception:
-                            pass
-
-                with col_r2:
-                    with st.form("form_finish_repair"):
-                        st.markdown("##### Selesaikan Perbaikan & Masukkan ke Box Ready")
-                        teknisi_repair = st.text_input("Nama Teknisi / Team Repair")
-                        
-                        submit_ready = st.form_submit_button("📦 Pindahkan ke Box Ready (Status Biru)")
-                        
-                        if submit_ready:
-                            payload_ready = {
-                                "tanggal": str(pd.Timestamp.now().date()),
-                                "mesin": "STOCK WAREHOUSE / READY BOX",
-                                "kategori": "Repair Completed",
-                                "status_part": "Part Ready",  # Status Biru
-                                "no_seri": item['No_Seri'],
-                                "nama_part": item['Nama_Part'],
-                                "type_part": item['Type'],
-                                "qty": int(item['Qty']),
-                                "teknisi": teknisi_repair if teknisi_repair else "-",
-                                "foto_base64": item.get("Foto_Base64", "")
-                            }
+            if df_menunggu.empty:
+                st.success("🎉 Tidak ada part yang menunggu repair saat ini.")
+            else:
+                for _, row in df_menunggu.iterrows():
+                    with st.expander(f"🔴 SN: {row['No_Seri']} | {row['Nama_Part']} (Mesin: {row['Mesin']})"):
+                        col_m1, col_m2 = st.columns([1, 2])
+                        with col_m1:
+                            foto_b64 = row.get("Foto_Base64", "")
+                            if foto_b64 and len(foto_b64) > 10:
+                                try:
+                                    st.image(Image.open(io.BytesIO(base64.b64decode(foto_b64))), width=150)
+                                except Exception:
+                                    pass
+                        with col_m2:
+                            st.write(f"**Type:** {row['Type']}")
+                            st.write(f"**Tanggal Masuk:** {row['Tanggal']}")
+                            st.write(f"**Pelapor Awal:** {row['Teknisi']}")
                             
-                            if insert_data_to_supabase(payload_ready):
-                                st.session_state["active_repair_item"] = None
-                                st.toast("✨ Part berhasil diperbaiki dan masuk ke Box Ready (Biru)!", icon="✅")
-                                st.rerun()
+                            teknisi_penerima = st.text_input("Nama Teknisi Repair", key=f"tech_ng_{row['ID']}")
+                            if st.button("🛠️ Mulai Repair (Pindahkan ke On Progress)", key=f"btn_start_{row['ID']}"):
+                                if update_status_in_supabase(row['ID'], "Part Repair", teknisi_penerima if teknisi_penerima else "-"):
+                                    st.toast("✅ Part dipindahkan ke status Sedang Di-Repair (Kuning)!", icon="🚀")
+                                    st.rerun()
+
+        # --- TAB 2: PART SEDANG DI-REPAIR ---
+        with tab_repair:
+            st.subheader("⚙️ Daftar Part Sedang Dikerjakan (On Progress)")
+            df_on_repair = df[df["Status_Part"] == "Part Repair"]
+
+            if df_on_repair.empty:
+                st.info("ℹ️ Tidak ada part yang sedang dalam proses repair.")
+            else:
+                for _, row in df_on_repair.iterrows():
+                    with st.expander(f"🟠 SN: {row['No_Seri']} | {row['Nama_Part']} | Teknisi: {row['Teknisi']}"):
+                        col_r1, col_r2 = st.columns([1, 2])
+                        with col_r1:
+                            foto_b64 = row.get("Foto_Base64", "")
+                            if foto_b64 and len(foto_b64) > 10:
+                                try:
+                                    st.image(Image.open(io.BytesIO(base64.b64decode(foto_b64))), width=150)
+                                except Exception:
+                                    pass
+                        with col_r2:
+                            st.write(f"**Type:** {row['Type']}")
+                            st.write(f"**Mesin Asal:** {row['Mesin']}")
+                            st.write(f"**Teknisi Repair:** {row['Teknisi']}")
+
+                            if st.button("📦 Selesai Repair & Masukkan ke Box Ready (Biru)", key=f"btn_ready_{row['ID']}"):
+                                # Update data lama jadi "Part Ready" atau buat record baru ke Box Ready
+                                payload_ready = {
+                                    "tanggal": str(pd.Timestamp.now().date()),
+                                    "mesin": "STOCK WAREHOUSE / READY BOX",
+                                    "kategori": "Repair Completed",
+                                    "status_part": "Part Ready",  # Status Biru
+                                    "no_seri": row['No_Seri'],
+                                    "nama_part": row['Nama_Part'],
+                                    "type_part": row['Type'],
+                                    "qty": int(row['Qty']),
+                                    "teknisi": row['Teknisi'],
+                                    "foto_base64": row.get("Foto_Base64", "")
+                                }
+                                # Hapus data lama yang statusnya Part Repair, lalu masukkan data baru Part Ready
+                                delete_data_from_supabase(row['ID'])
+                                if insert_data_to_supabase(payload_ready):
+                                    st.toast("✨ Part selesai direpair dan masuk ke Box Ready (Biru)!", icon="✅")
+                                    st.rerun()
 
 # ==========================================
 # 8. FORM 3: INSTALL MACHINE (CEK STOK READY ➔ PASANG KE MESIN)
@@ -449,7 +475,6 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
     st.title("🟢 Form Pemasangan Part ke Mesin (Install Machine)")
     st.caption("MP melakukan scan barcode part, sistem otomatis mengecek kecocokan Nama & Type di Box Ready (Biru) untuk dipasang ke mesin.")
 
-    # Ambil daftar part yang ada di Box Ready (Biru)
     df_ready_box = df[df["Status_Part"] == "Part Ready"] if not df.empty and "Status_Part" in df.columns else pd.DataFrame()
 
     uploader_key_inst = "uploader_key_inst"
@@ -471,7 +496,6 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
             tanggal_pasang = st.date_input("Tanggal Pemasangan")
             mesin_tujuan = st.selectbox("Pilih Mesin Tempat Pemasangan", MACHINE_LIST)
             
-            # Input manual / hasil scan
             nama_part_input = st.text_input("Nama Part (Hasil Scan)", value=scanned_name)
             type_part_input = st.text_input("Type Part (Hasil Scan)", value=scanned_type)
         with col_i2:
@@ -481,12 +505,10 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
         submitted_install = st.form_submit_button("🚀 Check & Install ke Mesin")
 
         if submitted_install:
-            # 1. Validasi apakah Nama dan Type tersebut ADA di Box Ready (Biru)
             match_found = False
             matched_item = None
 
             if not df_ready_box.empty:
-                # Cari baris yang Nama_Part dan Type-nya cocok
                 matched = df_ready_box[
                     (df_ready_box["Nama_Part"].str.lower() == nama_part_input.lower()) & 
                     (df_ready_box["Type"].str.lower() == type_part_input.lower())
@@ -498,9 +520,11 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
             if not match_found:
                 st.error(f"❌ **Stok di Box Ready Kosong / Tidak Cocok!** Tidak ditemukan part Ready dengan Nama '{nama_part_input}' dan Type '{type_part_input}' di Box Ready. Harap lakukan repair part terlebih dahulu melalui Tim Repair.")
             else:
-                # 2. Jika ada, lakukan instalasi (Simpan sebagai Installed/Normal ➔ Hijau)
                 foto_b64 = matched_item.get("Foto_Base64", "") if matched_item is not None else ""
                 
+                # Hapus item dari Box Ready karena sudah diambil untuk dipasang
+                delete_data_from_supabase(matched_item['ID'])
+
                 payload_installed = {
                     "tanggal": str(tanggal_pasang),
                     "mesin": mesin_tujuan,
