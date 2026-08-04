@@ -94,14 +94,14 @@ st.markdown("""
     }
     hr { border-color: rgba(255, 255, 255, 0.08) !important; margin: 0.8rem 0 !important; }
     
-    /* MENYEMBUNYIKAN IOKON / TOMBOL DOWNLOAD PADA TABEL UNTUK MP */
+    /* MENYEMBUNYIKAN TOMBOL DOWNLOAD PADA TABEL UNTUK MP */
     [data-testid="stElementToolbar"] {
         display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# PIN Admin untuk Fitur Hapus & Download Data (Silakan ganti jika perlu)
+# PIN Admin untuk Fitur Hapus & Download Data
 ADMIN_PIN = "1234"
 
 # ==========================================
@@ -202,10 +202,24 @@ def extract_text_from_image(image):
     return nama_part, type_part, no_seri
 
 # ==========================================
-# 4. NAVIGASI BAR
+# 4. NAVIGASI BAR DENGAN DETEKSI RAHASIA ADMIN
 # ==========================================
 query_params = st.query_params
 default_page_index = 0
+
+# Cek apakah URL memiliki parameter ?admin=true
+is_admin_mode = query_params.get("admin") == "true"
+
+menu_options = [
+    "📊 Executive Dashboard", 
+    "🔴 Form Input Part NG", 
+    "🛠️ Form Input Part Repair", 
+    "🟢 Form Input Part Ready"
+]
+
+# Jika URL dibuka oleh Anda (?admin=true), tambahkan menu Admin di Sidebar
+if is_admin_mode:
+    menu_options.append("🔒 Area Khusus Admin")
 
 if "page" in query_params:
     param_val = query_params["page"]
@@ -217,14 +231,6 @@ if "page" in query_params:
         default_page_index = 3
 
 st.sidebar.markdown("## ⚡ Executive Control")
-menu_options = [
-    "📊 Executive Dashboard", 
-    "🔴 Form Input Part NG", 
-    "🛠️ Form Input Part Repair", 
-    "🟢 Form Input Part Ready",
-    "🔒 Area Khusus Admin"
-]
-
 page = st.sidebar.radio("Pilih Modul:", menu_options, index=default_page_index)
 
 # ==========================================
@@ -292,7 +298,7 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
                 st.rerun()
 
 # ==========================================
-# 6. DASHBOARD UTAMA (AKSES UNTUK SEMUA MP)
+# 6. DASHBOARD UTAMA
 # ==========================================
 if page == "📊 Executive Dashboard":
     st.title("🛡️ Executive Maintenance")
@@ -452,7 +458,6 @@ if page == "📊 Executive Dashboard":
             )
             st.plotly_chart(fig_pie, use_container_width=True)
 
-    # TABEL DATA RIWAYAT UNTUK MP (HANYA BISA DILIHAT, TANPA TOMBOL DOWNLOAD/HAPUS)
     st.subheader("📋 Log Maintenance Terakhir (Data Real-Time)")
     st.dataframe(df, use_container_width=True)
 
@@ -466,7 +471,7 @@ elif page == "🟢 Form Input Part Ready":
     render_input_form("Part Ready", "Part Replacement", "Form Input Part Ready", "🟢")
 
 # ==========================================
-# 7. AREA KHUSUS ADMIN (DOWNLOAD & HAPUS DATA)
+# 7. AREA KHUSUS ADMIN (HANYA MUNCUL DENGAN URL RAHASIA)
 # ==========================================
 elif page == "🔒 Area Khusus Admin":
     st.title("🔒 Area Khusus Admin / Supervisor")
@@ -478,7 +483,6 @@ elif page == "🔒 Area Khusus Admin":
         st.success("🔓 Akses Admin Diterima!")
         
         if not df.empty:
-            # FITUR 1: DOWNLOAD EXCEL / CSV UNTUK ADMIN
             st.subheader("📥 Export / Download Data Database")
             csv = df.to_csv(index=False).encode('utf-8')
             st.download_button(
@@ -490,7 +494,6 @@ elif page == "🔒 Area Khusus Admin":
             
             st.markdown("---")
 
-            # FITUR 2: HAPUS DATA TERPILIH UNTUK ADMIN
             st.subheader("🗑️ Kelola & Hapus Data Terpilih")
             options = {f"ID: {row['ID']} | {row['Tanggal']} | {row['Mesin']} | {row['Nama_Part']} ({row['Status_Part']})": row['ID'] for _, row in df.iterrows()}
             selected_option = st.selectbox("Pilih Baris Data yang Akan Dihapus:", list(options.keys()))
