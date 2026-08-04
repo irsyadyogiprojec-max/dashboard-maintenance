@@ -468,7 +468,7 @@ elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
                                     st.rerun()
 
 # ==========================================
-# 8. FORM 3: INSTALL MACHINE (TANPA SCAN/UPLOAD)
+# 8. FORM 3: INSTALL MACHINE (AMBIL BOX READY)
 # ==========================================
 elif page == "🟢 Form Install Machine (Ambil Box Ready)":
     st.title("🟢 Form Pemasangan Part ke Mesin (Install Machine)")
@@ -505,7 +505,7 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
         st.markdown("---")
         st.subheader("✍️ Masukkan Detail Pemasangan ke Mesin")
 
-        with st.form("form_install_manual"):
+        with st.form("form_install_manual", clear_on_submit=True):
             col_f1, col_f2 = st.columns(2)
             with col_f1:
                 tanggal_pasang = st.date_input("Tanggal Pemasangan")
@@ -519,6 +519,11 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
                 if not teknisi_pasang:
                     st.error("❌ Nama MP / Teknisi yang menginstal wajib diisi!")
                 else:
+                    # Mencegah nilai nan agar aman dari error JSON Supabase
+                    safe_type = str(chosen_part['Type']) if pd.notna(chosen_part['Type']) and str(chosen_part['Type']) != 'nan' else "-"
+                    safe_nama = str(chosen_part['Nama_Part']) if pd.notna(chosen_part['Nama_Part']) and str(chosen_part['Nama_Part']) != 'nan' else "-"
+                    safe_sn = str(chosen_part['No_Seri']) if pd.notna(chosen_part['No_Seri']) and str(chosen_part['No_Seri']) != 'nan' else "-"
+
                     delete_data_from_supabase(chosen_part['ID'])
 
                     payload_installed = {
@@ -526,16 +531,16 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
                         "mesin": mesin_tujuan,
                         "kategori": "Installation",
                         "status_part": "Installed / Normal",
-                        "no_seri": chosen_part['No_Seri'],
-                        "nama_part": chosen_part['Nama_Part'],
-                        "type_part": chosen_part['Type'],
+                        "no_seri": safe_sn,
+                        "nama_part": safe_nama,
+                        "type_part": safe_type,
                         "qty": int(chosen_part['Qty']),
                         "teknisi": teknisi_pasang,
                         "foto_base64": foto_ready_b64
                     }
 
                     if insert_data_to_supabase(payload_installed):
-                        st.toast(f"✨ Part berhasil dipasang ke {mesin_tujuan}! Status mesin sekarang Hijau Normal.", icon="✅")
+                        st.success(f"✨ Part berhasil dipasang ke {mesin_tujuan}!")
                         st.rerun()
 
 # ==========================================
