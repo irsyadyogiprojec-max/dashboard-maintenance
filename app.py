@@ -106,7 +106,6 @@ def init_supabase():
     url = st.secrets.get("SUPABASE_URL", "")
     key = st.secrets.get("SUPABASE_KEY", "")
     if not url or not key:
-        st.error("⚠️ Kunci SUPABASE_URL & SUPABASE_KEY belum diatur di Streamlit Secrets!")
         return None
     return create_client(url, key)
 
@@ -127,8 +126,7 @@ def load_data_from_supabase():
             }
             return df_res.rename(columns=col_map)
         return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Gagal memuat data dari Supabase: {e}")
+    except Exception:
         return pd.DataFrame()
 
 def insert_data_to_supabase(record):
@@ -137,8 +135,7 @@ def insert_data_to_supabase(record):
     try:
         supabase.table("maintenance_log").insert(record).execute()
         return True
-    except Exception as e:
-        st.error(f"Gagal menyimpan data: {e}")
+    except Exception:
         return False
 
 def delete_data_from_supabase(row_id):
@@ -147,8 +144,7 @@ def delete_data_from_supabase(row_id):
     try:
         supabase.table("maintenance_log").delete().eq("id", row_id).execute()
         return True
-    except Exception as e:
-        st.error(f"Gagal menghapus data: {e}")
+    except Exception:
         return False
 
 df = load_data_from_supabase()
@@ -169,17 +165,13 @@ def extract_text_from_image(image):
             img_np = np.array(image.convert("RGB"))
             results = reader.readtext(img_np, detail=0)
             full_text = " ".join(results)
-
             sn_match = re.search(r'(?:SERIAL\s*NO|S/N|SN|SERI)[:\.\s]*([A-Z0-9\s\-]+)', full_text, re.IGNORECASE)
             if sn_match: no_seri = sn_match.group(1).strip()
-
             type_match = re.search(r'(?:TYPE|MODEL|TIPE)[:\.\s]*([A-Z0-9\-\_]+)', full_text, re.IGNORECASE)
             if type_match: type_part = type_match.group(1).strip()
-
             if len(results) > 0: nama_part = results[0]
         except Exception:
             pass
-
     if not nama_part: nama_part = "Dual Master Expander Device"
     if not type_part: type_part = "DME-010"
     if not no_seri: no_seri = "2CB0421 A"
@@ -207,7 +199,7 @@ page = st.sidebar.radio("Pilih Modul:", menu_options)
 
 st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
 if not st.session_state.admin_unlocked:
-    if st.sidebar.button("⚙️ System Manage", help="Akses Pengaturan System"):
+    if st.sidebar.button("⚙️ System Manage"):
         @st.dialog("🔒 Verifikasi Admin System")
         def open_admin_login():
             pin = st.text_input("Masukkan PIN Khusus Admin System:", type="password")
@@ -289,17 +281,22 @@ if page == "📊 Executive Dashboard":
 
     st.markdown("---")
     st.subheader("🗺️ Plant Layout Map Real-Time")
-    st.caption("Indikator Warna: 🔴 Part NG / Rusak | 🟠 Sedang Repair | 🟢 Ready / Normal Terpasang")
+    st.markdown("Indikator Warna: 🔴 **Part NG / Rusak** | 🟠 **Sedang Repair (On Progress)** | 🟢 **Ready / Normal Terpasang**")
 
+    # PENCARIAN GAMBAR LAYOUT YANG AMAN
     folder_saat_ini = os.path.dirname(os.path.abspath(__file__))
     jalur_gambar = None
-    for nama in ["layout.png", "layout.PNG", "layout"]:
+    for nama in ["layout.png", "layout.PNG", "layout.jpg", "layout.jpeg", "layout"]:
         cek_jalur = os.path.join(folder_saat_ini, nama)
         if os.path.exists(cek_jalur):
             jalur_gambar = cek_jalur
             break
 
-    img_width, img_height = (Image.open(jalur_gambar).size) if jalur_gambar else (1000, 1000)
+    if jalur_gambar:
+        img = Image.open(jalur_gambar)
+        img_width, img_height = img.size
+    else:
+        img_width, img_height = 1000, 1000
 
     MACHINE_POSITIONS = {
         "CRANK SHAFT LINE": {"x": img_width * 0.40, "y": img_height * 0.70},
@@ -320,24 +317,44 @@ if page == "📊 Executive Dashboard":
                 latest_status[row["Mesin"]] = row["Status_Part"]
 
     fig_map = go.Figure()
+    
     if jalur_gambar:
-        fig_map.add_layout_image(dict(source=Image.open(jalur_gambar), xref="x", yref="y", x=0, y=img_height, sizex=img_width, sizey=img_height, sizing="stretch", layer="below"))
+        fig_map.add_layout_image(dict(
+            source=img, xref="x", yref="y",
+            x=0, y=img_height, sizex=img_width, sizey=img_height,
+            sizing="stretch", opacity=1.0, layer="below"
+        ))
 
     for machine_name, pos in MACHINE_POSITIONS.items():
         status = latest_status.get(machine_name, "Part Ready")
         if status == "Part NG":
             color_main, color_glow = "#FF0055", "rgba(255, 0, 85, 0.4)"
         elif status == "Part Repair":
-            color_main, color_glow = "#FFB703", "rgba(255, 183, 3, 0.4)" # Oren untuk On Progress Repair
+            color_main, color_glow = "#FFB703", "rgba(255, 183, 3, 0.4)" # Oren
         else:
-            color_main, color_glow = "#00F5D4", "rgba(0, 245, 212, 0.35)" # Hijau untuk Ready / Terpasang
+            color_main, color_glow = "#00F5D4", "rgba(0, 245, 212, 0.35)" # Hijau
 
-        fig_map.add_trace(go.Scatter(x=[pos["x"]], y=[pos["y"]], mode="markers", marker=dict(size=26, color=color_glow), showlegend=False, hoverinfo="skip"))
-        fig_map.add_trace(go.Scatter(x=[pos["x"]], y=[pos["y"]], mode="markers+text", text=[f"<b>{machine_name}</b>"], textposition="top center", textfont=dict(color="#000000", size=10), marker=dict(size=14, color=color_main, line=dict(width=2, color="#FFFFFF")), hovertext=f"<b>Mesin:</b> {machine_name}<br><b>Status Part:</b> {status}"))
+        # Efek Glow (showlegend=False agar tidak muncul di daftar kanan)
+        fig_map.add_trace(go.Scatter(
+            x=[pos["x"]], y=[pos["y"]], mode="markers", 
+            marker=dict(size=26, color=color_glow), showlegend=False, hoverinfo="skip"
+        ))
+        # Titik Mesin Utama (showlegend=False membersihkan text trace di kanan)
+        fig_map.add_trace(go.Scatter(
+            x=[pos["x"]], y=[pos["y"]], mode="markers+text", 
+            text=[f"<b>{machine_name}</b>"], textposition="top center", 
+            textfont=dict(color="#FFFFFF", size=10), 
+            marker=dict(size=14, color=color_main, line=dict(width=2, color="#FFFFFF")), 
+            showlegend=False,
+            hovertext=f"<b>Mesin:</b> {machine_name}<br><b>Status Part:</b> {status}"
+        ))
 
     fig_map.update_xaxes(range=[0, img_width], showgrid=False, showticklabels=False, autorange=False)
     fig_map.update_yaxes(range=[0, img_height], showgrid=False, showticklabels=False, scaleanchor="x", scaleratio=1, autorange=False)
-    fig_map.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=600, margin=dict(l=0, r=0, t=0, b=0))
+    fig_map.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
+        height=600, margin=dict(l=0, r=0, t=0, b=0), showlegend=False
+    )
 
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
     
@@ -346,7 +363,7 @@ if page == "📊 Executive Dashboard":
     st.dataframe(df, use_container_width=True)
 
 # ==========================================
-# 7. FORM REPAIR (AMBIL DARI BOX NG / DATABASE)
+# 7. FORM REPAIR (AMBIL DARI BOX NG)
 # ==========================================
 elif page == "🛠️ Form Repair (Ambil dari Box NG)":
     st.title("🛠️ Form Proses Repair Sparepart")
@@ -355,16 +372,14 @@ elif page == "🛠️ Form Repair (Ambil dari Box NG)":
     if df.empty or "Status_Part" not in df.columns:
         st.info("Belum ada data sparepart di database.")
     else:
-        # Filter hanya part yang statusnya masih 'Part NG' atau sedang di-repair
         df_box_ng = df[df["Status_Part"].isin(["Part NG", "Part Repair"])]
         
         if df_box_ng.empty:
             st.success("🎉 Luar biasa! Tidak ada part NG di box saat ini.")
         else:
-            # Buat pilihan dropdown berdasarkan Serial Number / Nama Part
             part_options = {f"SN: {row['No_Seri']} | {row['Nama_Part']} (Mesin Asal: {row['Mesin']}) [Status: {row['Status_Part']}]": row for _, row in df_box_ng.iterrows()}
             
-            selected_label = st.selectbox("🔍 Pilih Part dari Box NG / Ketik/Scan Barcode Serial No:", list(part_options.keys()))
+            selected_label = st.selectbox("🔍 Pilih Part dari Box NG:", list(part_options.keys()))
             selected_data = part_options[selected_label]
 
             st.markdown("---")
@@ -383,7 +398,7 @@ elif page == "🛠️ Form Repair (Ambil dari Box NG)":
             with col_info2:
                 st.markdown("### ⚙️ Eksekusi Perbaikan (Repair Action)")
                 with st.form("form_action_repair"):
-                    target_mesin_pasang = st.selectbox("Pasang ke Mesin Tujuan (Bisa dipasang ke mesin lain yang sejenis):", MACHINE_LIST, index=MACHINE_LIST.index(selected_data['Mesin']) if selected_data['Mesin'] in MACHINE_LIST else 0)
+                    target_mesin_pasang = st.selectbox("Pasang ke Mesin Tujuan:", MACHINE_LIST, index=MACHINE_LIST.index(selected_data['Mesin']) if selected_data['Mesin'] in MACHINE_LIST else 0)
                     
                     status_keputusan = st.radio("Status Hasil Pengerjaan:", ["🛠️ Part Sedang Di-Repair (On Progress - Oren)", "🟢 Part Sudah Selesai & Terpasang di Mesin (Ready - Hijau)"])
                     
@@ -407,14 +422,14 @@ elif page == "🛠️ Form Repair (Ambil dari Box NG)":
                         }
                         
                         if insert_data_to_supabase(payload):
-                            st.toast(f"✅ Status part {selected_data['No_Seri']} berhasil diperbarui menjadi {status_simpan}!", icon="✨")
+                            st.toast(f"✅ Status part berhasil diperbarui!", icon="✨")
                             st.rerun()
 
 elif page == "🔴 Form Input Part NG":
     render_input_form("Part NG", "Part Replacement", "Form Part NG", "🔴")
 
 elif page == "🟢 Form Input Part Ready":
-    render_input_form("Part Ready", "Part Replacement", "Form Input Part Ready", "🟢")
+    render_input_form("Post Ready", "Part Replacement", "Form Input Part Ready", "🟢")
 
 # ==========================================
 # 8. AREA KHUSUS ADMIN
