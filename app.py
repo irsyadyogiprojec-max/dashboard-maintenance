@@ -121,6 +121,9 @@ def load_data_from_supabase():
         data = response.data
         if data:
             df_res = pd.DataFrame(data)
+            if "foto_base64" in df_res.columns:
+                df_res["foto_base64"] = df_res["foto_base64"].fillna("")
+                
             col_map = {
                 "id": "ID", "tanggal": "Tanggal", "mesin": "Mesin", "kategori": "Kategori",
                 "status_part": "Status_Part", "no_seri": "No_Seri",
@@ -393,7 +396,6 @@ elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
     if df.empty or "Status_Part" not in df.columns:
         st.info("Belum ada data sparepart di database.")
     else:
-        # Buat 2 Tab agar tidak tercampur
         tab_menunggu, tab_repair = st.tabs(["⏳ Part Menunggu Repair (Box NG)", "🛠️ Part Sedang Di-Repair (On Progress)"])
 
         # --- TAB 1: PART MENUNGGU REPAIR ---
@@ -408,8 +410,8 @@ elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
                     with st.expander(f"🔴 SN: {row['No_Seri']} | {row['Nama_Part']} (Mesin: {row['Mesin']})"):
                         col_m1, col_m2 = st.columns([1, 2])
                         with col_m1:
-                            foto_b64 = row.get("Foto_Base64", "")
-                            if foto_b64 and len(foto_b64) > 10:
+                            foto_b64 = str(row.get("Foto_Base64", "")) if row.get("Foto_Base64") is not None else ""
+                            if foto_b64 and foto_b64 != "None" and len(foto_b64) > 10:
                                 try:
                                     st.image(Image.open(io.BytesIO(base64.b64decode(foto_b64))), width=150)
                                 except Exception:
@@ -437,8 +439,8 @@ elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
                     with st.expander(f"🟠 SN: {row['No_Seri']} | {row['Nama_Part']} | Teknisi: {row['Teknisi']}"):
                         col_r1, col_r2 = st.columns([1, 2])
                         with col_r1:
-                            foto_b64 = row.get("Foto_Base64", "")
-                            if foto_b64 and len(foto_b64) > 10:
+                            foto_b64 = str(row.get("Foto_Base64", "")) if row.get("Foto_Base64") is not None else ""
+                            if foto_b64 and foto_b64 != "None" and len(foto_b64) > 10:
                                 try:
                                     st.image(Image.open(io.BytesIO(base64.b64decode(foto_b64))), width=150)
                                 except Exception:
@@ -449,20 +451,18 @@ elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
                             st.write(f"**Teknisi Repair:** {row['Teknisi']}")
 
                             if st.button("📦 Selesai Repair & Masukkan ke Box Ready (Biru)", key=f"btn_ready_{row['ID']}"):
-                                # Update data lama jadi "Part Ready" atau buat record baru ke Box Ready
                                 payload_ready = {
                                     "tanggal": str(pd.Timestamp.now().date()),
                                     "mesin": "STOCK WAREHOUSE / READY BOX",
                                     "kategori": "Repair Completed",
-                                    "status_part": "Part Ready",  # Status Biru
+                                    "status_part": "Part Ready",
                                     "no_seri": row['No_Seri'],
                                     "nama_part": row['Nama_Part'],
                                     "type_part": row['Type'],
                                     "qty": int(row['Qty']),
                                     "teknisi": row['Teknisi'],
-                                    "foto_base64": row.get("Foto_Base64", "")
+                                    "foto_base64": str(row.get("Foto_Base64", "")) if row.get("Foto_Base64") is not None else ""
                                 }
-                                # Hapus data lama yang statusnya Part Repair, lalu masukkan data baru Part Ready
                                 delete_data_from_supabase(row['ID'])
                                 if insert_data_to_supabase(payload_ready):
                                     st.toast("✨ Part selesai direpair dan masuk ke Box Ready (Biru)!", icon="✅")
@@ -520,16 +520,15 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
             if not match_found:
                 st.error(f"❌ **Stok di Box Ready Kosong / Tidak Cocok!** Tidak ditemukan part Ready dengan Nama '{nama_part_input}' dan Type '{type_part_input}' di Box Ready. Harap lakukan repair part terlebih dahulu melalui Tim Repair.")
             else:
-                foto_b64 = matched_item.get("Foto_Base64", "") if matched_item is not None else ""
+                foto_b64 = str(matched_item.get("Foto_Base64", "")) if matched_item is not None and matched_item.get("Foto_Base64") is not None else ""
                 
-                # Hapus item dari Box Ready karena sudah diambil untuk dipasang
                 delete_data_from_supabase(matched_item['ID'])
 
                 payload_installed = {
                     "tanggal": str(tanggal_pasang),
                     "mesin": mesin_tujuan,
                     "kategori": "Installation",
-                    "status_part": "Installed / Normal", # Status Hijau di Mesin
+                    "status_part": "Installed / Normal",
                     "no_seri": no_seri_input if no_seri_input else matched_item['No_Seri'],
                     "nama_part": nama_part_input,
                     "type_part": type_part_input,
