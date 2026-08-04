@@ -140,15 +140,6 @@ def insert_data_to_supabase(record):
         supabase.table("maintenance_log").insert(record).execute()
         return True
     except Exception as e:
-        # Fallback jika kolom foto_base64 belum ada di database, hapus key foto_base64 agar tetap bisa tersimpan
-        if "foto_base64" in str(e):
-            try:
-                record.pop("foto_base64", None)
-                supabase.table("maintenance_log").insert(record).execute()
-                return True
-            except Exception as e2:
-                st.error(f"Gagal menyimpan ke database: {e2}")
-                return False
         st.error(f"Gagal menyimpan ke database: {e}")
         return False
 
@@ -451,8 +442,8 @@ elif page == "🛠️ Form Repair (Ambil dari Box NG)":
                             image_bytes = base64.b64decode(foto_b64)
                             image_part = Image.open(io.BytesIO(image_bytes))
                             st.image(image_part, caption="Foto Fisik Part (Saat Input NG)", width=260)
-                        except Exception:
-                            st.warning("⚠️ Gagal memuat foto fisik part.")
+                        except Exception as e:
+                            st.warning(f"⚠️ Gagal merender foto: {e}")
                     else:
                         st.info("ℹ️ Tidak ada foto fisik yang di-upload untuk part ini.")
 
@@ -508,7 +499,7 @@ elif page == "🔒 Area Khusus Admin":
         st.download_button("📥 Download Data Full (CSV)", data=csv, file_name='maintenance_log_report.csv', mime='text/csv')
         
         st.markdown("---")
-        st.subheader("🗑️ Hapus Baris Data")
+        st.subheader("🗑️ Hapus Baris Data Lama")
         options = {f"ID: {row['ID']} | {row['Tanggal']} | {row['Mesin']} | {row['Nama_Part']} ({row['Status_Part']})": row['ID'] for _, row in df.iterrows()}
         selected_option = st.selectbox("Pilih Baris:", list(options.keys()))
         target_id = options[selected_option]
