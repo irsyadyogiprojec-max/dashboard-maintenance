@@ -22,7 +22,7 @@ except Exception:
     HAS_OCR = False
 
 # ==========================================
-# 1. KONFIGURASI HALAMAN & CSS PERFORMANCE
+# 1. KONFIGURASI HALAMAN & CSS GUIDELINE
 # ==========================================
 st.set_page_config(
     page_title="Executive Maintenance & OEE Dashboard",
@@ -37,7 +37,6 @@ st.markdown("""
         background: linear-gradient(135deg, #0B0F19 0%, #111827 50%, #0F172A 100%);
         color: #F3F4F6;
     }
-    /* Optimasi Animasi & Transisi Tab agar Smooth */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
         background-color: rgba(30, 41, 59, 0.5);
@@ -56,6 +55,31 @@ st.markdown("""
         background: linear-gradient(90deg, #2563EB 0%, #7C3AED 100%) !important;
         color: #FFFFFF !important;
         font-weight: 700 !important;
+    }
+    .workflow-box {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        padding: 12px 16px;
+        border-radius: 10px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 0.9rem;
+    }
+    .workflow-step {
+        color: #94A3B8;
+        font-weight: 500;
+    }
+    .workflow-step.active {
+        color: #38BDF8;
+        font-weight: 700;
+        background: rgba(56, 189, 248, 0.1);
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid rgba(56, 189, 248, 0.3);
     }
     div[data-testid="metric-container"] {
         background: rgba(30, 41, 59, 0.7) !important;
@@ -224,7 +248,6 @@ st.sidebar.markdown("## ⚡ Executive Control")
 if "admin_unlocked" not in st.session_state:
     st.session_state.admin_unlocked = False
 
-# Tombol Tambahan Sidebar untuk Halaman Utama / Admin
 show_admin = st.sidebar.checkbox("🔒 Masuk Mode Admin", value=st.session_state.admin_unlocked)
 if show_admin != st.session_state.admin_unlocked:
     if show_admin:
@@ -237,24 +260,48 @@ if show_admin != st.session_state.admin_unlocked:
         st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.info("💡 **Tips:** Gunakan menu Tab di atas layar agar perpindahan halaman menjadi **sangat cepat dan tanpa delay**.")
+st.sidebar.info("💡 **Panduan QR Code:**\nMP cukup scan QR di kotak masing-masing untuk langsung masuk ke halaman tujuan secara otomatis tanpa klik.")
 
 # ==========================================
-# 5. SISTEM NAVIGASI TAB UTAMA (SUPER SMOOTH & ZERO DELAY)
+# 5. CEK URL QUERY PARAMETER UNTUK QR CODE
+# ==========================================
+query_params = st.query_params
+target_page = query_params.get("page", "dashboard")
+
+# Mapping index tab berdasarkan parameter URL
+tab_index_map = {
+    "dashboard": 0,
+    "ng": 1,
+    "repair": 2,
+    "install": 3
+}
+default_tab_idx = tab_index_map.get(target_page, 0)
+
+# ==========================================
+# 6. NAVIGASI UTAMA DENGAN AUTO-FOCUS QR CODE
 # ==========================================
 if not st.session_state.admin_unlocked:
-    # 3 HALAMAN UTAMA DALAM BENTUK TAB SUPREME SMOOTH
-    tab_dash, tab_ng, tab_repair, tab_install = st.tabs([
+    # Membuat tab dengan index aktif otomatis sesuai QR Code yang diskan
+    tabs = st.tabs([
         "📊 Dashboard", 
         "🔴 1. Input Part NG", 
         "🛠️ 2. Team Repair", 
         "🟢 3. Install ke Mesin"
     ])
+    
+    tab_dash, tab_ng, tab_repair, tab_install = tabs
 
     # ------------------------------------------
     # TAB 1: DASHBOARD
     # ------------------------------------------
     with tab_dash:
+        st.markdown("""
+        <div class="workflow-box">
+            <div>📍 <b>Posisi Anda:</b> <span class="workflow-step active">Dashboard Utama & Monitoring Layout</span></div>
+            <div>👉 <i>Scan QR:</i> Scan QR di Kotak Part NG atau Kotak Repair untuk langsung menuju halaman terkait.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.title("🛡️ Executive Maintenance")
         st.caption("Monitoring Performa Mesin & Plant Layout Map Real-Time")
         st.markdown("---")
@@ -335,9 +382,16 @@ if not st.session_state.admin_unlocked:
         st.dataframe(df_display, use_container_width=True)
 
     # ------------------------------------------
-    # TAB 2: INPUT PART NG (HALAMAN 1)
+    # TAB 2: INPUT PART NG (LANGKAH 1)
     # ------------------------------------------
     with tab_ng:
+        st.markdown("""
+        <div class="workflow-box">
+            <div>📍 <b>Posisi Anda (Dari QR Code Kotak Part NG):</b> <span class="workflow-step active">Input Part NG (Mesin Berhenti/Rusak)</span></div>
+            <div>👉 <i>Panduan:</i> Upload foto part rusak / label, sistem akan auto-scan lalu simpan ke sistem.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.title("🔴 Input Part NG dari Mesin (Mesin Berhenti)")
         st.caption("Gunakan form ini saat MP menemukan abnormality/kerusakan di mesin dan melepas part NG.")
 
@@ -388,9 +442,16 @@ if not st.session_state.admin_unlocked:
                     st.rerun()
 
     # ------------------------------------------
-    # TAB 3: TEAM REPAIR (HALAMAN 2)
+    # TAB 3: TEAM REPAIR (LANGKAH 2)
     # ------------------------------------------
     with tab_repair:
+        st.markdown("""
+        <div class="workflow-box">
+            <div>📍 <b>Posisi Anda (Dari QR Code Team Repair):</b> <span class="workflow-step active">Team Repair (Perbaikan Part)</span></div>
+            <div>👉 <i>Panduan:</i> Pilih part yang masuk untuk mulai perbaikan atau selesaikan repair.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.title("🛠️ Ruang Team Repair")
         st.caption("Pemisahan jelas antara part yang menunggu perbaikan dan part yang sedang dikerjakan.")
 
@@ -468,9 +529,16 @@ if not st.session_state.admin_unlocked:
                                         st.rerun()
 
     # ------------------------------------------
-    # TAB 4: INSTALL KE MESIN (HALAMAN 3)
+    # TAB 4: INSTALL KE MESIN (LANGKAH 3)
     # ------------------------------------------
     with tab_install:
+        st.markdown("""
+        <div class="workflow-box">
+            <div>📍 <b>Posisi Anda (Dari QR Code Install):</b> <span class="workflow-step active">Install ke Mesin (Pemasangan Part Ready)</span></div>
+            <div>👉 <i>Panduan:</i> Pilih part dari Box Ready lalu pasang kembali ke mesin.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.title("🟢 Form Pemasangan Part ke Mesin (Install Machine)")
         st.caption("Pilih part yang tersedia di Box Ready, isi tanggal & nama MP, lalu pasang ke mesin agar status mesin jadi hijau.")
 
@@ -543,7 +611,7 @@ if not st.session_state.admin_unlocked:
                             st.rerun()
 
 # ==========================================
-# 6. AREA KHUSUS ADMIN
+# 7. AREA KHUSUS ADMIN
 # ==========================================
 else:
     st.title("🔒 Area Khusus Admin / Supervisor")
