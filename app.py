@@ -20,7 +20,7 @@ except Exception:
     HAS_OCR = False
 
 # ==========================================
-# 1. KONFIGURASI HALAMAN & CSS
+# 1. KONFIGURASI HALAMAN & CSS SECURITY
 # ==========================================
 st.set_page_config(
     page_title="Executive Maintenance & OEE Dashboard",
@@ -29,6 +29,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# CSS Tambahan: Menyembunyikan Toolbar Bawaan Tabel (Menghapus Tombol Download & Search Tabel MP)
 st.markdown("""
 <style>
     .stApp {
@@ -92,8 +93,16 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
     hr { border-color: rgba(255, 255, 255, 0.08) !important; margin: 0.8rem 0 !important; }
+    
+    /* MENYEMBUNYIKAN IOKON / TOMBOL DOWNLOAD PADA TABEL UNTUK MP */
+    [data-testid="stElementToolbar"] {
+        display: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# PIN Admin untuk Fitur Hapus & Download Data (Silakan ganti jika perlu)
+ADMIN_PIN = "1234"
 
 # ==========================================
 # 2. KONEKSI SUPABASE DATABASE
@@ -118,7 +127,7 @@ def load_data_from_supabase():
         if data:
             df_res = pd.DataFrame(data)
             col_map = {
-                "tanggal": "Tanggal", "mesin": "Mesin", "kategori": "Kategori",
+                "id": "ID", "tanggal": "Tanggal", "mesin": "Mesin", "kategori": "Kategori",
                 "status_part": "Status_Part", "no_seri": "No_Seri",
                 "nama_part": "Nama_Part", "type_part": "Type", "qty": "Qty", "teknisi": "Teknisi"
             }
@@ -136,6 +145,16 @@ def insert_data_to_supabase(record):
         return True
     except Exception as e:
         st.error(f"Gagal menyimpan data: {e}")
+        return False
+
+def delete_data_from_supabase(row_id):
+    if supabase is None:
+        return False
+    try:
+        supabase.table("maintenance_log").delete().eq("id", row_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Gagal menghapus data: {e}")
         return False
 
 df = load_data_from_supabase()
@@ -202,7 +221,8 @@ menu_options = [
     "📊 Executive Dashboard", 
     "🔴 Form Input Part NG", 
     "🛠️ Form Input Part Repair", 
-    "🟢 Form Input Part Ready"
+    "🟢 Form Input Part Ready",
+    "🔒 Area Khusus Admin"
 ]
 
 page = st.sidebar.radio("Pilih Modul:", menu_options, index=default_page_index)
@@ -214,7 +234,6 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
     st.title(f"{color_tag} {title_text}")
     st.caption(f"Halaman Khusus Scan & Input untuk Kategori **{status_part_default}**.")
     
-    # Inisialisasi Key untuk Reset File Uploader
     uploader_key = f"uploader_key_{status_part_default}"
     if uploader_key not in st.session_state:
         st.session_state[uploader_key] = 0
@@ -268,12 +287,12 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
                 "teknisi": teknisi if teknisi else "-"
             }
             if insert_data_to_supabase(payload):
-                st.session_state[uploader_key] += 1  # Reset File Uploader
+                st.session_state[uploader_key] += 1
                 st.toast(f"✨ Data {status_part_default} berhasil tersimpan permanen di Supabase!", icon="✅")
                 st.rerun()
 
 # ==========================================
-# 6. DASHBOARD UTAMA
+# 6. DASHBOARD UTAMA (AKSES UNTUK SEMUA MP)
 # ==========================================
 if page == "📊 Executive Dashboard":
     st.title("🛡️ Executive Maintenance")
@@ -433,7 +452,8 @@ if page == "📊 Executive Dashboard":
             )
             st.plotly_chart(fig_pie, use_container_width=True)
 
-    st.subheader("📋 Log Maintenance Terakhir (Data Supabase)")
+    # TABEL DATA RIWAYAT UNTUK MP (HANYA BISA DILIHAT, TANPA TOMBOL DOWNLOAD/HAPUS)
+    st.subheader("📋 Log Maintenance Terakhir (Data Real-Time)")
     st.dataframe(df, use_container_width=True)
 
 elif page == "🔴 Form Input Part NG":
@@ -444,3 +464,43 @@ elif page == "🛠️ Form Input Part Repair":
 
 elif page == "🟢 Form Input Part Ready":
     render_input_form("Part Ready", "Part Replacement", "Form Input Part Ready", "🟢")
+
+# ==========================================
+# 7. AREA KHUSUS ADMIN (DOWNLOAD & HAPUS DATA)
+# ==========================================
+elif page == "🔒 Area Khusus Admin":
+    st.title("🔒 Area Khusus Admin / Supervisor")
+    st.caption("Fasilitas khusus Admin untuk mengunduh laporan Excel dan menghapus baris data.")
+
+    pin_input = st.text_input("Masukkan PIN Admin", type="password")
+
+    if pin_input == ADMIN_PIN:
+        st.success("🔓 Akses Admin Diterima!")
+        
+        if not df.empty:
+            # FITUR 1: DOWNLOAD EXCEL / CSV UNTUK ADMIN
+            st.subheader("📥 Export / Download Data Database")
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Data Full (CSV / Excel)",
+                data=csv,
+                file_name='maintenance_log_report.csv',
+                mime='text/csv',
+            )
+            
+            st.markdown("---")
+
+            # FITUR 2: HAPUS DATA TERPILIH UNTUK ADMIN
+            st.subheader("🗑️ Kelola & Hapus Data Terpilih")
+            options = {f"ID: {row['ID']} | {row['Tanggal']} | {row['Mesin']} | {row['Nama_Part']} ({row['Status_Part']})": row['ID'] for _, row in df.iterrows()}
+            selected_option = st.selectbox("Pilih Baris Data yang Akan Dihapus:", list(options.keys()))
+            target_id = options[selected_option]
+
+            if st.button("❌ Hapus Data Terpilih"):
+                if delete_data_from_supabase(target_id):
+                    st.toast(f"🗑️ Data dengan ID {target_id} berhasil dihapus!", icon="✅")
+                    st.rerun()
+        else:
+            st.info("Belum ada data di dalam database Supabase.")
+    elif pin_input != "":
+        st.error("🔒 PIN Admin Salah! Silakan coba lagi.")
