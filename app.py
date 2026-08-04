@@ -127,7 +127,6 @@ def load_data_from_supabase():
                 "nama_part": "Nama_Part", "type_part": "Type", "qty": "Qty", "teknisi": "Teknisi",
                 "foto_base64": "Foto_Base64"
             }
-            # Rename columns safely if they exist
             existing_cols = {k: v for k, v in col_map.items() if k in df_res.columns}
             return df_res.rename(columns=existing_cols)
         return pd.DataFrame()
@@ -141,6 +140,15 @@ def insert_data_to_supabase(record):
         supabase.table("maintenance_log").insert(record).execute()
         return True
     except Exception as e:
+        # Fallback jika kolom foto_base64 belum ada di database, hapus key foto_base64 agar tetap bisa tersimpan
+        if "foto_base64" in str(e):
+            try:
+                record.pop("foto_base64", None)
+                supabase.table("maintenance_log").insert(record).execute()
+                return True
+            except Exception as e2:
+                st.error(f"Gagal menyimpan ke database: {e2}")
+                return False
         st.error(f"Gagal menyimpan ke database: {e}")
         return False
 
@@ -161,7 +169,6 @@ MACHINE_LIST = [
     "CYLINDER BLOCK LINE", "Pos QC", "Mesin Lainnya"
 ]
 
-# Deteksi Jalur Gambar Layout untuk Dashboard
 folder_saat_ini = os.path.dirname(os.path.abspath(__file__))
 kemungkinan_nama_file = [
     "layout.png.png", "lay out.PNG.PNG", "lay out.png", "lay out.PNG", 
@@ -254,7 +261,6 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
         image = Image.open(uploaded_file)
         st.image(image, caption="Foto Part Diunggah", width=160)
         
-        # Konversi gambar ke base64 agar bisa disimpan di text column database Supabase
         buffered = io.BytesIO()
         image.save(buffered, format="JPEG")
         encoded_image_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
@@ -397,7 +403,6 @@ if page == "📊 Executive Dashboard":
 
     st.markdown("---")
     st.subheader("📋 Log Maintenance Terakhir")
-    # Sembunyikan kolom foto_base64 yang panjang di dataframe utama agar rapi
     df_display = df.drop(columns=["Foto_Base64"], errors="ignore")
     st.dataframe(df_display, use_container_width=True)
 
@@ -440,7 +445,6 @@ elif page == "🛠️ Form Repair (Ambil dari Box NG)":
                     * **Pelapor / Teknisi Awal:** {selected_data['Teknisi']}
                     """)
                     
-                    # Tampilkan FOTO ASLI part yang di-upload dari database (jika ada)
                     foto_b64 = selected_data.get("Foto_Base64", "")
                     if foto_b64 and isinstance(foto_b64, str) and len(foto_b64) > 10:
                         try:
