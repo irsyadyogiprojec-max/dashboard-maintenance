@@ -283,20 +283,22 @@ if page == "📊 Executive Dashboard":
     st.subheader("🗺️ Plant Layout Map Real-Time")
     st.markdown("Indikator Warna: 🔴 **Part NG / Rusak** | 🟠 **Sedang Repair (On Progress)** | 🟢 **Ready / Normal Terpasang**")
 
-    # PENCARIAN GAMBAR LAYOUT YANG AMAN
+    # LOAD GAMBAR LAYOUT SECARA LANGSUNG
     folder_saat_ini = os.path.dirname(os.path.abspath(__file__))
-    jalur_gambar = None
-    for nama in ["layout.png", "layout.PNG", "layout.jpg", "layout.jpeg", "layout"]:
-        cek_jalur = os.path.join(folder_saat_ini, nama)
-        if os.path.exists(cek_jalur):
-            jalur_gambar = cek_jalur
-            break
+    jalur_gambar = os.path.join(folder_saat_ini, "layout.png")
 
-    if jalur_gambar:
+    if os.path.exists(jalur_gambar):
         img = Image.open(jalur_gambar)
         img_width, img_height = img.size
     else:
-        img_width, img_height = 1000, 1000
+        # Fallback jika file png tidak ketemu, cek jpg
+        jalur_gambar_jpg = os.path.join(folder_saat_ini, "layout.jpg")
+        if os.path.exists(jalur_gambar_jpg):
+            img = Image.open(jalur_gambar_jpg)
+            img_width, img_height = img.size
+        else:
+            img_width, img_height = 1200, 800
+            img = None
 
     MACHINE_POSITIONS = {
         "CRANK SHAFT LINE": {"x": img_width * 0.40, "y": img_height * 0.70},
@@ -318,7 +320,7 @@ if page == "📊 Executive Dashboard":
 
     fig_map = go.Figure()
     
-    if jalur_gambar:
+    if img is not None:
         fig_map.add_layout_image(dict(
             source=img, xref="x", yref="y",
             x=0, y=img_height, sizex=img_width, sizey=img_height,
@@ -334,12 +336,10 @@ if page == "📊 Executive Dashboard":
         else:
             color_main, color_glow = "#00F5D4", "rgba(0, 245, 212, 0.35)" # Hijau
 
-        # Efek Glow (showlegend=False agar tidak muncul di daftar kanan)
         fig_map.add_trace(go.Scatter(
             x=[pos["x"]], y=[pos["y"]], mode="markers", 
             marker=dict(size=26, color=color_glow), showlegend=False, hoverinfo="skip"
         ))
-        # Titik Mesin Utama (showlegend=False membersihkan text trace di kanan)
         fig_map.add_trace(go.Scatter(
             x=[pos["x"]], y=[pos["y"]], mode="markers+text", 
             text=[f"<b>{machine_name}</b>"], textposition="top center", 
@@ -429,7 +429,7 @@ elif page == "🔴 Form Input Part NG":
     render_input_form("Part NG", "Part Replacement", "Form Part NG", "🔴")
 
 elif page == "🟢 Form Input Part Ready":
-    render_input_form("Post Ready", "Part Replacement", "Form Input Part Ready", "🟢")
+    render_input_form("Part Ready", "Part Replacement", "Form Input Part Ready", "🟢")
 
 # ==========================================
 # 8. AREA KHUSUS ADMIN
