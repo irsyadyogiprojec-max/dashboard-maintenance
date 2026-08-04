@@ -8,7 +8,7 @@ import re
 import numpy as np
 from supabase import create_client, Client
 
-# Import EasyOCR (Lebih stabil dan tidak butuh packages.txt)
+# Import EasyOCR (Optional fallback)
 try:
     import easyocr
     @st.cache_resource
@@ -16,7 +16,7 @@ try:
         return easyocr.Reader(['en'], gpu=False)
     reader = load_ocr_reader()
     HAS_OCR = True
-except Exception as e:
+except Exception:
     HAS_OCR = False
 
 # ==========================================
@@ -160,24 +160,19 @@ def extract_text_from_image(image):
             results = reader.readtext(img_np, detail=0)
             full_text = " ".join(results)
 
-            # Extract Serial Number
             sn_match = re.search(r'(?:SERIAL\s*NO|S/N|SN|SERI)[:\.\s]*([A-Z0-9\s\-]+)', full_text, re.IGNORECASE)
             if sn_match:
                 no_seri = sn_match.group(1).strip()
 
-            # Extract Type
             type_match = re.search(r'(?:TYPE|MODEL|TIPE)[:\.\s]*([A-Z0-9\-\_]+)', full_text, re.IGNORECASE)
             if type_match:
                 type_part = type_match.group(1).strip()
 
-            # Extract Name (Ambil kata-kata utama)
             if len(results) > 0:
                 nama_part = results[0]
-
-        except Exception as e:
+        except Exception:
             pass
 
-    # Fallback default cerdas untuk nameplate yang terdeteksi 'Dual Master' jika OCR buram
     if not nama_part:
         nama_part = "Dual Master Expander Device"
     if not type_part:
@@ -213,13 +208,22 @@ menu_options = [
 page = st.sidebar.radio("Pilih Modul:", menu_options, index=default_page_index)
 
 # ==========================================
-# 5. FUNGSI FORM INPUT
+# 5. FUNGSI FORM INPUT WITH AUTO RESET
 # ==========================================
 def render_input_form(status_part_default, kategori_default, title_text, color_tag):
     st.title(f"{color_tag} {title_text}")
     st.caption(f"Halaman Khusus Scan & Input untuk Kategori **{status_part_default}**.")
     
-    uploaded_file = st.file_uploader("📷 Upload Foto Part / Label Seri", type=["png", "jpg", "jpeg"], key=f"file_{status_part_default}")
+    # Inisialisasi Key untuk Reset File Uploader
+    uploader_key = f"uploader_key_{status_part_default}"
+    if uploader_key not in st.session_state:
+        st.session_state[uploader_key] = 0
+
+    uploaded_file = st.file_uploader(
+        "📷 Upload Foto Part / Label Seri", 
+        type=["png", "jpg", "jpeg"], 
+        key=f"file_{status_part_default}_{st.session_state[uploader_key]}"
+    )
     
     scanned_sn = ""
     scanned_name = ""
@@ -264,7 +268,8 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
                 "teknisi": teknisi if teknisi else "-"
             }
             if insert_data_to_supabase(payload):
-                st.success(f"✨ Data {status_part_default} berhasil tersimpan permanen di Supabase!")
+                st.session_state[uploader_key] += 1  # Reset File Uploader
+                st.toast(f"✨ Data {status_part_default} berhasil tersimpan permanen di Supabase!", icon="✅")
                 st.rerun()
 
 # ==========================================
