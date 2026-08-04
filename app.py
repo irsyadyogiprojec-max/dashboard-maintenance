@@ -7,16 +7,16 @@ import random
 import os
 
 # ==========================================
-# 1. KONFIGURASI HALAMAN & TEMA MEWAH (FUTURISTIC)
+# 1. KONFIGURASI HALAMAN & RESPONSIVE STYLING
 # ==========================================
 st.set_page_config(
     page_title="Executive Maintenance & OEE Dashboard",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS untuk efek Glassmorphism & Neon Luxury
+# Custom CSS Responsif (HP & Laptop)
 st.markdown("""
 <style>
     /* Background Utama */
@@ -25,31 +25,29 @@ st.markdown("""
         color: #F3F4F6;
     }
     
-    /* Styling Sidebar Mewah */
-    [data-testid="stSidebar"] {
-        background-color: rgba(15, 23, 42, 0.85) !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(10px);
+    /* Responsive Title & Headers */
+    h1 {
+        font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
+        font-weight: 800 !important;
+        padding-bottom: 0px !important;
+    }
+    h2, h3 {
+        font-size: clamp(1.1rem, 3vw, 1.6rem) !important;
     }
 
-    /* Kartu Metrik dengan Efek Glassmorphism & Neon Border */
+    /* Kartu Metrik Glassmorphism Responsif */
     div[data-testid="metric-container"] {
         background: rgba(30, 41, 59, 0.6) !important;
         border: 1px solid rgba(56, 189, 248, 0.2) !important;
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         backdrop-filter: blur(8px);
-        border-radius: 16px !important;
-        padding: 18px 22px !important;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    div[data-testid="metric-container"]:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 40px 0 rgba(56, 189, 248, 0.25);
-        border: 1px solid rgba(56, 189, 248, 0.5) !important;
+        border-radius: 14px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 8px !important;
     }
 
     [data-testid="stMetricValue"] {
-        font-size: 30px !important;
+        font-size: clamp(1.4rem, 3.5vw, 2.2rem) !important;
         font-weight: 800 !important;
         background: linear-gradient(90deg, #38BDF8, #818CF8);
         -webkit-background-clip: text;
@@ -57,39 +55,41 @@ st.markdown("""
     }
 
     [data-testid="stMetricLabel"] {
-        font-size: 13px !important;
+        font-size: clamp(0.75rem, 2vw, 0.9rem) !important;
         color: #94A3B8 !important;
         font-weight: 600 !important;
-        letter-spacing: 0.5px;
     }
 
-    /* Form Container dengan Efek Kaca */
+    /* Form Container Responsif */
     [data-testid="stForm"] {
         background: rgba(30, 41, 59, 0.4) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 20px !important;
-        padding: 25px !important;
+        border-radius: 16px !important;
+        padding: 16px !important;
         backdrop-filter: blur(12px);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
-    /* Tombol Simpan Bergradasi Neon */
+    /* Tombol Simpan Neon */
     .stButton>button, div[data-testid="stFormSubmitButton"]>button {
         background: linear-gradient(90deg, #2563EB 0%, #7C3AED 100%) !important;
         color: #FFFFFF !important;
         border: none !important;
         font-weight: 700 !important;
-        border-radius: 12px !important;
-        padding: 12px 28px !important;
-        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4) !important;
-        transition: all 0.3s ease !important;
-    }
-    .stButton>button:hover, div[data-testid="stFormSubmitButton"]>button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 6px 28px rgba(124, 58, 237, 0.7) !important;
+        border-radius: 10px !important;
+        padding: 10px 20px !important;
+        width: 100% !important;
+        box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4) !important;
     }
 
-    hr { border-color: rgba(255, 255, 255, 0.08) !important; }
+    /* Penyesuaian Padding Komponen Streamlit untuk Layar Sempit */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+    }
+
+    hr { border-color: rgba(255, 255, 255, 0.08) !important; margin: 1rem 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -103,6 +103,7 @@ if "maintenance_data" not in st.session_state:
         {"Tanggal": "2026-08-03", "Mesin": "QC 02", "Kategori": "Repair", "Status_Part": "Part Repair", "No_Seri": "SN-55410", "Nama_Part": "Motor Shaft", "Qty": 1, "Teknisi": "Candra"}
     ])
 
+# Koordinat Titik Mesin (Disesuaikan dengan Rasio Gambar)
 MACHINE_POSITIONS = {
     "CRANK SHAFT LINE": {"x": 500, "y": 880, "line": "Crank Shaft"},
     "QC 01": {"x": 200, "y": 800, "line": "Crank Shaft"},
@@ -118,7 +119,7 @@ MACHINE_POSITIONS = {
 MACHINE_LIST = list(MACHINE_POSITIONS.keys()) + ["Mesin Lainnya"]
 
 # ==========================================
-# 3. NAVIGASI BAR
+# 3. NAVIGASI MODUL
 # ==========================================
 query_params = st.query_params
 default_page_index = 0
@@ -144,7 +145,7 @@ page = st.sidebar.radio("Pilih Modul:", menu_options, index=default_page_index)
 df = st.session_state["maintenance_data"]
 
 # ==========================================
-# 4. FUNGSI RENDER FORM INPUT (TANPA DOWNTIME)
+# 4. FUNGSI RENDER FORM INPUT
 # ==========================================
 def render_input_form(status_part_default, kategori_default, title_text, color_tag):
     st.title(f"{color_tag} {title_text}")
@@ -157,24 +158,24 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Foto Part Diunggah", width=180)
+        st.image(image, caption="Foto Part Diunggah", width=160)
         
-        with st.spinner("🔍 Memindai Gambar & Deteksi Nomor Seri/Nama Part..."):
+        with st.spinner("🔍 Memindai Gambar..."):
             scanned_sn = f"SN-{random.randint(10000, 99999)}"
             parts_dummy = ["Bearing SKF 6204", "Seal Hydraulic", "V-Belt B-52", "Sensor Proximity", "Valve Hydro"]
             scanned_name = random.choice(parts_dummy)
-        st.success("✅ Auto-Scan Berhasil! Nomor Seri dan Nama Part terisi otomatis.")
+        st.success("✅ Auto-Scan Berhasil!")
 
     with st.form(f"form_{status_part_default}", clear_on_submit=True):
-        col_a, col_b = st.columns(2)
+        col_a, col_b = st.columns([1, 1])
         
         with col_a:
             tanggal = st.date_input("Tanggal Perbaikan")
             mesin = st.selectbox("Pilih Mesin / Lokasi Stasiun", MACHINE_LIST)
-            no_seri = st.text_input("Nomor Seri Part (Auto-Generated)", value=scanned_sn)
-            nama_part = st.text_input("Nama Sparepart (Auto-Generated)", value=scanned_name)
+            no_seri = st.text_input("Nomor Seri Part", value=scanned_sn)
 
         with col_b:
+            nama_part = st.text_input("Nama Sparepart", value=scanned_name)
             qty = st.number_input("Jumlah Part (Qty)", min_value=1, value=1)
             teknisi = st.text_input("Nama Teknisi / PIC")
 
@@ -199,81 +200,32 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
             st.success(f"✨ Data {status_part_default} untuk {mesin} berhasil disimpan!")
 
 # ==========================================
-# 5. HALAMAN UTAMA DASHBOARD
+# 5. HALAMAN DASHBOARD UTAMA
 # ==========================================
 if page == "📊 Executive Dashboard":
-    st.title("🛡️ Executive Maintenance & OEE Dashboard")
-    st.caption("Pemantauan Performa Mesin, Log Perbaikan, dan Interactive Plant Layout Map")
+    st.title("🛡️ Executive Maintenance")
+    st.caption("Monitoring Performa Mesin & Plant Layout Map Real-Time")
     st.markdown("---")
 
-    # Ringkasan Kartu Metrik
-    col1, col2, col3, col4 = st.columns(4)
+    # Ringkasan Metrik (2 Kolom di Mobile, 4 Kolom di Laptop)
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
     
     total_repair = len(df[df["Kategori"] == "Repair"]) if not df.empty else 0
     total_replace = len(df[df["Kategori"] == "Part Replacement"]) if not df.empty else 0
     part_ng = len(df[df["Status_Part"] == "Part NG"]) if not df.empty else 0
 
-    col1.metric("🛠️ Total Repair", f"{total_repair} Pekerjaan")
-    col2.metric("🔄 Part Replace", f"{total_replace} Pekerjaan")
-    col3.metric("⚠️ Part NG", f"{part_ng} Item")
-    col4.metric("📈 OEE Keseluruhan", "84.2%", delta="1.7% MoM")
-
-    st.markdown("---")
-
-    # BAR CHART & PIE CHART MEWAH
-    col_left, col_right = st.columns(2)
-    chart_bg = "rgba(15, 23, 42, 0.0)"
-    font_color = "#F8FAFC"
-
-    with col_left:
-        st.subheader("📊 Volume Perbaikan berdasarkan Kategori")
-        if not df.empty:
-            cat_counts = df["Kategori"].value_counts().reset_index()
-            cat_counts.columns = ["Kategori", "Jumlah"]
-            
-            fig_bar = px.bar(cat_counts, x="Kategori", y="Jumlah", text="Jumlah")
-            fig_bar.update_traces(
-                marker=dict(color="#38BDF8", line=dict(color="#0284C7", width=1.5)),
-                textposition="outside", 
-                textfont=dict(size=14, color=font_color)
-            )
-            fig_bar.update_layout(
-                plot_bgcolor=chart_bg, paper_bgcolor=chart_bg, font=dict(color=font_color),
-                xaxis=dict(title="", showgrid=False),
-                yaxis=dict(title="Jumlah Kejadian", showgrid=True, gridcolor="rgba(255,255,255,0.08)", zeroline=False),
-                showlegend=False, height=340, margin=dict(l=20, r=20, t=30, b=20)
-            )
-            st.plotly_chart(fig_bar, use_container_width=True)
-
-    with col_right:
-        st.subheader("🧩 Breakdown Status Sparepart")
-        if not df.empty:
-            status_counts = df["Status_Part"].value_counts().reset_index()
-            status_counts.columns = ["Status_Part", "Jumlah"]
-            
-            fig_pie = px.pie(status_counts, names="Status_Part", values="Jumlah", hole=0.6)
-            fig_pie.update_traces(
-                textinfo="percent+label", textfont=dict(size=12, color="#FFFFFF"),
-                marker=dict(colors=["#FF0055", "#00F5D4", "#FFB703"])
-            )
-            fig_pie.update_layout(
-                plot_bgcolor=chart_bg, paper_bgcolor=chart_bg, font=dict(color=font_color),
-                height=340, margin=dict(l=20, r=20, t=30, b=20),
-                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
-            )
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-    # TABEL LOG RIWAYAT MAINTENANCE
-    st.subheader("📋 Log Riwayat Maintenance Terakhir")
-    st.dataframe(df, use_container_width=True)
+    col1.metric("🛠️ Repair", f"{total_repair}")
+    col2.metric("🔄 Replace", f"{total_replace}")
+    col3.metric("⚠️ Part NG", f"{part_ng}")
+    col4.metric("📈 OEE", "84.2%", delta="1.7%")
 
     st.markdown("---")
 
     # ==========================================
-    # MAP LAYOUT PABRIK INTERAKTIF MEWAH
+    # MAP LAYOUT PABRIK INTERAKTIF (LOCKED CORNER)
     # ==========================================
-    st.subheader("🗺️ Plant Layout Map & Indikator Lampu Real-Time")
-    st.caption("Titik lampu interaktif dengan pendaran cahaya neon (glow effect).")
+    st.subheader("🗺️ Plant Layout Map Real-Time")
+    st.caption("Sentuh/Hover titik lampu untuk informasi rinci status mesin.")
 
     latest_status = {}
     if not df.empty:
@@ -296,6 +248,7 @@ if page == "📊 Executive Dashboard":
         img = Image.open(jalur_gambar)
         img_width, img_height = img.size
 
+        # Gambar Layout Sebagai Layer Utama
         fig_map.add_layout_image(
             dict(
                 source=img,
@@ -311,44 +264,41 @@ if page == "📊 Executive Dashboard":
             )
         )
     else:
-        st.warning("⚠️ File gambar layout tidak ditemukan.")
+        st.warning("⚠️ File layout gambar tidak ditemukan.")
         img_width, img_height = 1000, 1000
 
+    # Menambahkan Titik Lampu Indikator Termasuk Glow Effect
     for machine_name, pos in MACHINE_POSITIONS.items():
         status = latest_status.get(machine_name, "Normal")
         
         if status == "Part NG":
-            color_main = "#FF0055"      # 🔴 Merah Neon
+            color_main = "#FF0055"
             color_glow = "rgba(255, 0, 85, 0.4)"
             label_status = "Part NG (Breakdown)"
         elif status == "Part Repair":
-            color_main = "#FFB703"      # 🟡 Kuning Neon
+            color_main = "#FFB703"
             color_glow = "rgba(255, 183, 3, 0.4)"
             label_status = "Part Repair (Dalam Perbaikan)"
         elif status == "Part Ready":
-            color_main = "#00F5D4"      # 🟢 Cyan Neon
+            color_main = "#00F5D4"
             color_glow = "rgba(0, 245, 212, 0.4)"
             label_status = "Part Ready (Siap Beroperasi)"
         else:
-            color_main = "#10B981"      # 🟢 Hijau Emerald
+            color_main = "#10B981"
             color_glow = "rgba(16, 185, 129, 0.35)"
             label_status = "Normal (Berjalan)"
 
-        # 1. GLOW EFFECT (OUTER HALO)
+        # 1. Outer Glow Marker
         fig_map.add_trace(go.Scatter(
             x=[pos["x"]],
             y=[pos["y"]],
             mode="markers",
             hoverinfo="skip",
             showlegend=False,
-            marker=dict(
-                size=44,
-                color=color_glow,
-                line=dict(width=0)
-            )
+            marker=dict(size=28, color=color_glow, line=dict(width=0))
         ))
 
-        # 2. LAMPU INTI & TEKS HITAM
+        # 2. Main Lamp Marker
         fig_map.add_trace(go.Scatter(
             x=[pos["x"]],
             y=[pos["y"]],
@@ -356,35 +306,99 @@ if page == "📊 Executive Dashboard":
             name=machine_name,
             text=[f" <b>{machine_name}</b> "],
             textposition="top center",
-            textfont=dict(color="#000000", size=11, family="Arial, sans-serif"),
+            textfont=dict(color="#FFFFFF", size=10, family="Arial, sans-serif"),
             marker=dict(
-                size=22,
+                size=14,
                 color=color_main,
                 symbol="circle",
-                line=dict(width=2.5, color="#FFFFFF"),
-                opacity=1.0
+                line=dict(width=2, color="#FFFFFF")
             ),
             hoverinfo="text",
-            hovertext=f"<b>Mesin/Stasiun:</b> {machine_name}<br><b>Area Lini:</b> {pos['line']}<br><b>Status Terkini:</b> {label_status}"
+            hovertext=f"<b>Mesin:</b> {machine_name}<br><b>Area:</b> {pos['line']}<br><b>Status:</b> {label_status}"
         ))
 
-    fig_map.update_layout(
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[0, img_width]),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[0, img_height]),
-        plot_bgcolor="#0F172A",
-        paper_bgcolor="#1E293B",
-        height=850,
-        showlegend=False,
-        margin=dict(l=10, r=10, t=10, b=10)
+    # Kunci Koordinat Sumbu X dan Y secara Absolut (Fixed Aspect Ratio)
+    fig_map.update_xaxes(
+        range=[0, img_width],
+        showgrid=False,
+        zeroline=False,
+        showticklabels=False,
+        fixedrange=False
+    )
+    fig_map.update_yaxes(
+        range=[0, img_height],
+        showgrid=False,
+        zeroline=False,
+        showticklabels=False,
+        scaleanchor="x",
+        scaleratio=1,
+        fixedrange=False
     )
 
-    st.plotly_chart(fig_map, use_container_width=True)
+    fig_map.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        height=550,
+        showlegend=False,
+        margin=dict(l=0, r=0, t=0, b=0)
+    )
+
+    st.plotly_chart(fig_map, use_container_width=True, config={'responsive': True, 'scrollZoom': True})
+
+    st.markdown("---")
+
+    # BAR & PIE CHART RESPONSIVE
+    col_left, col_right = st.columns(2)
+    chart_bg = "rgba(0,0,0,0)"
+    font_color = "#F8FAFC"
+
+    with col_left:
+        st.subheader("📊 Volume Perbaikan")
+        if not df.empty:
+            cat_counts = df["Kategori"].value_counts().reset_index()
+            cat_counts.columns = ["Kategori", "Jumlah"]
+            
+            fig_bar = px.bar(cat_counts, x="Kategori", y="Jumlah", text="Jumlah")
+            fig_bar.update_traces(
+                marker=dict(color="#38BDF8", line=dict(color="#0284C7", width=1.5)),
+                textposition="outside", 
+                textfont=dict(size=12, color=font_color)
+            )
+            fig_bar.update_layout(
+                plot_bgcolor=chart_bg, paper_bgcolor=chart_bg, font=dict(color=font_color),
+                xaxis=dict(title="", showgrid=False),
+                yaxis=dict(title="", showgrid=True, gridcolor="rgba(255,255,255,0.08)", zeroline=False),
+                showlegend=False, height=280, margin=dict(l=10, r=10, t=20, b=10)
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+    with col_right:
+        st.subheader("🧩 Status Sparepart")
+        if not df.empty:
+            status_counts = df["Status_Part"].value_counts().reset_index()
+            status_counts.columns = ["Status_Part", "Jumlah"]
+            
+            fig_pie = px.pie(status_counts, names="Status_Part", values="Jumlah", hole=0.5)
+            fig_pie.update_traces(
+                textinfo="percent+label", textfont=dict(size=11, color="#FFFFFF"),
+                marker=dict(colors=["#FF0055", "#00F5D4", "#FFB703"])
+            )
+            fig_pie.update_layout(
+                plot_bgcolor=chart_bg, paper_bgcolor=chart_bg, font=dict(color=font_color),
+                height=280, margin=dict(l=10, r=10, t=20, b=10),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+    # TABEL LOG
+    st.subheader("📋 Log Maintenance Terakhir")
+    st.dataframe(df, use_container_width=True)
 
 elif page == "🔴 Form Input Part NG":
-    render_input_form("Part NG", "Part Replacement", "Form Laporan Kerusakan Part (Part NG)", "🔴")
+    render_input_form("Part NG", "Part Replacement", "Form Part NG", "🔴")
 
 elif page == "🛠️ Form Input Part Repair":
-    render_input_form("Part Repair", "Repair", "Form Laporan Perbaikan Part (Part Repair)", "🛠️")
+    render_input_form("Part Repair", "Repair", "Form Part Repair", "🛠️")
 
 elif page == "🟢 Form Input Part Ready":
-    render_input_form("Part Ready", "Part Replacement", "Form Laporan Part Ready to Use", "🟢")
+    render_input_form("Part Ready", "Part Replacement", "Form Part Ready", "🟢")
