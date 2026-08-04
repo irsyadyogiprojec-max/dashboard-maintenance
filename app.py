@@ -99,7 +99,7 @@ st.markdown("""
 ADMIN_PIN = "1234"
 
 # ==========================================
-# 2. KONEKSI SUPABASE DATABASE
+# 2. KONEKSI SUPABASE & GLOBAL PATH
 # ==========================================
 @st.cache_resource
 def init_supabase():
@@ -154,6 +154,19 @@ MACHINE_LIST = [
     "CYLINDER HEAD LINE", "CAM SHAFT LINE", "QC 1", 
     "CYLINDER BLOCK LINE", "Pos QC", "Mesin Lainnya"
 ]
+
+# Deteksi Jalur Gambar Layout secara Global
+folder_saat_ini = os.path.dirname(os.path.abspath(__file__))
+kemungkinan_nama_file = [
+    "layout.png.png", "lay out.PNG.PNG", "lay out.png", "lay out.PNG", 
+    "layout.png", "layout.PNG", "layout.jpg", "layout.jpeg"
+]
+jalur_gambar = None
+for nama_file in kemungkinan_nama_file:
+    cek_jalur = os.path.join(folder_saat_ini, nama_file)
+    if os.path.exists(cek_jalur):
+        jalur_gambar = cek_jalur
+        break
 
 # ==========================================
 # 3. FUNGSI OCR
@@ -229,11 +242,9 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
     uploaded_file = st.file_uploader("📷 Upload Foto Part / Label Seri", type=["png", "jpg", "jpeg"], key=f"file_{status_part_default}_{st.session_state[uploader_key]}")
     
     scanned_sn, scanned_name, scanned_type = "", "", ""
-    img_bytes = None
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Foto Part Diunggah", width=160)
-        img_bytes = uploaded_file.getvalue()
         with st.spinner("🔍 Memindai Teks..."):
             scanned_name, scanned_type, scanned_sn = extract_text_from_image(image)
         st.success("✅ Auto-Scan Berhasil!")
@@ -252,7 +263,6 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
 
         submitted = st.form_submit_button(f"💾 Simpan ke Database ({status_part_default})")
         if submitted:
-            # Simpan foto sementara dalam session atau abaikan jika belum pakai blob DB, tapi info teks tersimpan
             payload = {
                 "tanggal": str(tanggal), "mesin": mesin, "kategori": kategori_default,
                 "status_part": status_part_default, "no_seri": no_seri if no_seri else "-",
@@ -285,19 +295,6 @@ if page == "📊 Executive Dashboard":
     st.markdown("---")
     st.subheader("🗺️ Plant Layout Map Real-Time")
     st.markdown("Indikator Warna: 🔴 **Part NG / Rusak** | 🟠 **Sedang Repair (On Progress)** | 🟢 **Ready / Normal Terpasang**")
-
-    folder_saat_ini = os.path.dirname(os.path.abspath(__file__))
-    kemungkinan_nama_file = [
-        "layout.png.png", "lay out.PNG.PNG", "lay out.png", "lay out.PNG", 
-        "layout.png", "layout.PNG", "layout.jpg", "layout.jpeg"
-    ]
-    
-    jalur_gambar = None
-    for nama_file in kemungkinan_nama_file:
-        cek_jalur = os.path.join(folder_saat_ini, nama_file)
-        if os.path.exists(cek_jalur):
-            jalur_gambar = cek_jalur
-            break
 
     if jalur_gambar:
         img_pil = Image.open(jalur_gambar)
@@ -388,7 +385,7 @@ if page == "📊 Executive Dashboard":
     st.dataframe(df, use_container_width=True)
 
 # ==========================================
-# 7. FORM REPAIR (AMBIL DARI BOX NG) - DENGAN TRIGGER KONTROL
+# 7. FORM REPAIR (AMBIL DARI BOX NG)
 # ==========================================
 elif page == "🛠️ Form Repair (Ambil dari Box NG)":
     st.title("🛠️ Form Proses Repair Sparepart")
@@ -404,15 +401,12 @@ elif page == "🛠️ Form Repair (Ambil dari Box NG)":
         else:
             part_options = {f"SN: {row['No_Seri']} | {row['Nama_Part']} (Mesin Asal: {row['Mesin']}) [Status: {row['Status_Part']}]": row for _, row in df_box_ng.iterrows()}
             
-            # Reset state jika pilihan box berubah
             selected_label = st.selectbox("🔍 Pilih Part dari Box NG:", list(part_options.keys()))
             
-            # Tombol untuk mengaktifkan Form Eksekusi
             if st.button("📌 Muat & Pilih Part Ini"):
                 st.session_state["active_repair_part"] = part_options[selected_label]
                 st.success("✅ Part berhasil dipilih! Silakan isi form eksekusi di bawah.")
 
-            # OPSI EKSEKUSI HANYA MUNCUL KETIKA PART SUDAH DIPILIH
             if "active_repair_part" in st.session_state and st.session_state["active_repair_part"] is not None:
                 selected_data = st.session_state["active_repair_part"]
 
@@ -429,7 +423,6 @@ elif page == "🛠️ Form Repair (Ambil dari Box NG)":
                     * **Pelapor / Teknisi Awal:** {selected_data['Teknisi']}
                     """)
                     
-                    # Tampilkan gambar layout/foto pendukung jika ada
                     if jalur_gambar and os.path.exists(jalur_gambar):
                         st.image(jalur_gambar, caption="Visualisasi Layout / Referensi Fisik", width=260)
 
