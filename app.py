@@ -7,7 +7,7 @@ import random
 import os
 
 # ==========================================
-# 1. KONFIGURASI HALAMAN & RESPONSIVE STYLING
+# 1. KONFIGURASI HALAMAN & CSS RESPONSIF
 # ==========================================
 st.set_page_config(
     page_title="Executive Maintenance & OEE Dashboard",
@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS Responsif (HP & Laptop)
+# Custom CSS untuk memaksa 4 Metrik Sejajar di HP & Lock Layout
 st.markdown("""
 <style>
     /* Background Utama */
@@ -24,30 +24,33 @@ st.markdown("""
         background: linear-gradient(135deg, #0B0F19 0%, #111827 50%, #0F172A 100%);
         color: #F3F4F6;
     }
-    
-    /* Responsive Title & Headers */
-    h1 {
-        font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
-        font-weight: 800 !important;
-        padding-bottom: 0px !important;
+
+    /* PAKSA 4 KOLOM METRIK SEJAJAR DI HP & LAPTOP */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
     }
-    h2, h3 {
-        font-size: clamp(1.1rem, 3vw, 1.6rem) !important;
+    
+    [data-testid="stHorizontalBlock"] > div {
+        min-width: 0 !important;
+        flex: 1 1 0px !important;
     }
 
-    /* Kartu Metrik Glassmorphism Responsif */
+    /* Kartu Metrik Ringkas & Mewah */
     div[data-testid="metric-container"] {
-        background: rgba(30, 41, 59, 0.6) !important;
-        border: 1px solid rgba(56, 189, 248, 0.2) !important;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        background: rgba(30, 41, 59, 0.7) !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         backdrop-filter: blur(8px);
-        border-radius: 14px !important;
-        padding: 12px 16px !important;
-        margin-bottom: 8px !important;
+        border-radius: 12px !important;
+        padding: 8px 10px !important;
+        text-align: center;
     }
 
     [data-testid="stMetricValue"] {
-        font-size: clamp(1.4rem, 3.5vw, 2.2rem) !important;
+        font-size: clamp(1rem, 2.5vw, 1.8rem) !important;
         font-weight: 800 !important;
         background: linear-gradient(90deg, #38BDF8, #818CF8);
         -webkit-background-clip: text;
@@ -55,12 +58,15 @@ st.markdown("""
     }
 
     [data-testid="stMetricLabel"] {
-        font-size: clamp(0.75rem, 2vw, 0.9rem) !important;
+        font-size: clamp(0.65rem, 1.5vw, 0.85rem) !important;
         color: #94A3B8 !important;
         font-weight: 600 !important;
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    /* Form Container Responsif */
+    /* Container Form */
     [data-testid="stForm"] {
         background: rgba(30, 41, 59, 0.4) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -69,32 +75,30 @@ st.markdown("""
         backdrop-filter: blur(12px);
     }
 
-    /* Tombol Simpan Neon */
+    /* Tombol Neon */
     .stButton>button, div[data-testid="stFormSubmitButton"]>button {
         background: linear-gradient(90deg, #2563EB 0%, #7C3AED 100%) !important;
         color: #FFFFFF !important;
         border: none !important;
         font-weight: 700 !important;
         border-radius: 10px !important;
-        padding: 10px 20px !important;
+        padding: 10px !important;
         width: 100% !important;
-        box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4) !important;
     }
 
-    /* Penyesuaian Padding Komponen Streamlit untuk Layar Sempit */
     .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
     }
 
-    hr { border-color: rgba(255, 255, 255, 0.08) !important; margin: 1rem 0 !important; }
+    hr { border-color: rgba(255, 255, 255, 0.08) !important; margin: 0.8rem 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. DATASET IN-MEMORY & KOORDINAT MESIN
+# 2. DATASET & KOORDINAT MESIN
 # ==========================================
 if "maintenance_data" not in st.session_state:
     st.session_state["maintenance_data"] = pd.DataFrame([
@@ -103,23 +107,14 @@ if "maintenance_data" not in st.session_state:
         {"Tanggal": "2026-08-03", "Mesin": "QC 02", "Kategori": "Repair", "Status_Part": "Part Repair", "No_Seri": "SN-55410", "Nama_Part": "Motor Shaft", "Qty": 1, "Teknisi": "Candra"}
     ])
 
-# Koordinat Titik Mesin (Disesuaikan dengan Rasio Gambar)
-MACHINE_POSITIONS = {
-    "CRANK SHAFT LINE": {"x": 500, "y": 880, "line": "Crank Shaft"},
-    "QC 01": {"x": 200, "y": 800, "line": "Crank Shaft"},
-    "ISP-017": {"x": 130, "y": 800, "line": "Crank Shaft"},
-    "QC 02": {"x": 300, "y": 800, "line": "Crank Shaft"},
-    "CYLINDER HEAD LINE": {"x": 500, "y": 620, "line": "Cyl Head"},
-    "CAM SHAFT LINE": {"x": 250, "y": 380, "line": "Cam Shaft"},
-    "QC 1": {"x": 308, "y": 320, "line": "Cam Shaft"},
-    "CYLINDER BLOCK LINE": {"x": 480, "y": 120, "line": "Cyl Block"},
-    "Pos QC": {"x": 100, "y": 60, "line": "Cyl Block"}
-}
-
-MACHINE_LIST = list(MACHINE_POSITIONS.keys()) + ["Mesin Lainnya"]
+MACHINE_LIST = [
+    "CRANK SHAFT LINE", "QC 01", "ISP-017", "QC 02", 
+    "CYLINDER HEAD LINE", "CAM SHAFT LINE", "QC 1", 
+    "CYLINDER BLOCK LINE", "Pos QC", "Mesin Lainnya"
+]
 
 # ==========================================
-# 3. NAVIGASI MODUL
+# 3. NAVIGASI BAR
 # ==========================================
 query_params = st.query_params
 default_page_index = 0
@@ -145,7 +140,7 @@ page = st.sidebar.radio("Pilih Modul:", menu_options, index=default_page_index)
 df = st.session_state["maintenance_data"]
 
 # ==========================================
-# 4. FUNGSI RENDER FORM INPUT
+# 4. FUNGSI FORM INPUT
 # ==========================================
 def render_input_form(status_part_default, kategori_default, title_text, color_tag):
     st.title(f"{color_tag} {title_text}")
@@ -158,7 +153,7 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Foto Part Diunggah", width=160)
+        st.image(image, caption="Foto Part Diunggah", width=150)
         
         with st.spinner("🔍 Memindai Gambar..."):
             scanned_sn = f"SN-{random.randint(10000, 99999)}"
@@ -167,7 +162,7 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
         st.success("✅ Auto-Scan Berhasil!")
 
     with st.form(f"form_{status_part_default}", clear_on_submit=True):
-        col_a, col_b = st.columns([1, 1])
+        col_a, col_b = st.columns(2)
         
         with col_a:
             tanggal = st.date_input("Tanggal Perbaikan")
@@ -207,32 +202,25 @@ if page == "📊 Executive Dashboard":
     st.caption("Monitoring Performa Mesin & Plant Layout Map Real-Time")
     st.markdown("---")
 
-    # Ringkasan Metrik (2 Kolom di Mobile, 4 Kolom di Laptop)
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    # 4 KARTU METRIK DIJAMIN 1 BARIS SEJAJAR DI HP
+    col1, col2, col3, col4 = st.columns(4)
     
     total_repair = len(df[df["Kategori"] == "Repair"]) if not df.empty else 0
     total_replace = len(df[df["Kategori"] == "Part Replacement"]) if not df.empty else 0
     part_ng = len(df[df["Status_Part"] == "Part NG"]) if not df.empty else 0
 
-    col1.metric("🛠️ Repair", f"{total_repair}")
-    col2.metric("🔄 Replace", f"{total_replace}")
-    col3.metric("⚠️ Part NG", f"{part_ng}")
-    col4.metric("📈 OEE", "84.2%", delta="1.7%")
+    col1.metric("🛠️ Repair", f"{total_repair} Pekerjaan")
+    col2.metric("🔄 Replace", f"{total_replace} Pekerjaan")
+    col3.metric("⚠️ Part NG", f"{part_ng} Item")
+    col4.metric("📈 OEE", "84.2%", delta="1.7% MoM")
 
     st.markdown("---")
 
     # ==========================================
-    # MAP LAYOUT PABRIK INTERAKTIF (LOCKED CORNER)
+    # MAP LAYOUT PABRIK INTERAKTIF TERKUNCI (FIXED)
     # ==========================================
     st.subheader("🗺️ Plant Layout Map Real-Time")
     st.caption("Sentuh/Hover titik lampu untuk informasi rinci status mesin.")
-
-    latest_status = {}
-    if not df.empty:
-        for idx, row in df.iterrows():
-            latest_status[row["Mesin"]] = row["Status_Part"]
-
-    fig_map = go.Figure()
 
     folder_saat_ini = os.path.dirname(os.path.abspath(__file__))
     pilihan_nama_file = ["layout.png", "layout.PNG", "layout.png.png", "layout.png.", "layout"]
@@ -247,8 +235,30 @@ if page == "📊 Executive Dashboard":
     if jalur_gambar and os.path.exists(jalur_gambar):
         img = Image.open(jalur_gambar)
         img_width, img_height = img.size
+    else:
+        img_width, img_height = 1000, 1000
 
-        # Gambar Layout Sebagai Layer Utama
+    # KOORDINAT PRESISI DALAM DENAH (Disesuaikan dengan Rasio Gambar Piksel)
+    MACHINE_POSITIONS = {
+        "CRANK SHAFT LINE": {"x": img_width * 0.40, "y": img_height * 0.70, "line": "Crank Shaft"},
+        "QC 01": {"x": img_width * 0.22, "y": img_height * 0.70, "line": "Crank Shaft"},
+        "ISP-017": {"x": img_width * 0.14, "y": img_height * 0.70, "line": "Crank Shaft"},
+        "QC 02": {"x": img_width * 0.30, "y": img_height * 0.70, "line": "Crank Shaft"},
+        "CYLINDER HEAD LINE": {"x": img_width * 0.48, "y": img_height * 0.48, "line": "Cyl Head"},
+        "CAM SHAFT LINE": {"x": img_width * 0.28, "y": img_height * 0.35, "line": "Cam Shaft"},
+        "QC 1": {"x": img_width * 0.35, "y": img_height * 0.35, "line": "Cam Shaft"},
+        "CYLINDER BLOCK LINE": {"x": img_width * 0.48, "y": img_height * 0.18, "line": "Cyl Block"},
+        "Pos QC": {"x": img_width * 0.12, "y": img_height * 0.18, "line": "Cyl Block"}
+    }
+
+    latest_status = {}
+    if not df.empty:
+        for idx, row in df.iterrows():
+            latest_status[row["Mesin"]] = row["Status_Part"]
+
+    fig_map = go.Figure()
+
+    if jalur_gambar and os.path.exists(jalur_gambar):
         fig_map.add_layout_image(
             dict(
                 source=img,
@@ -263,11 +273,8 @@ if page == "📊 Executive Dashboard":
                 layer="below"
             )
         )
-    else:
-        st.warning("⚠️ File layout gambar tidak ditemukan.")
-        img_width, img_height = 1000, 1000
 
-    # Menambahkan Titik Lampu Indikator Termasuk Glow Effect
+    # TITIK LAMPU
     for machine_name, pos in MACHINE_POSITIONS.items():
         status = latest_status.get(machine_name, "Normal")
         
@@ -288,25 +295,25 @@ if page == "📊 Executive Dashboard":
             color_glow = "rgba(16, 185, 129, 0.35)"
             label_status = "Normal (Berjalan)"
 
-        # 1. Outer Glow Marker
+        # Glow Outer
         fig_map.add_trace(go.Scatter(
             x=[pos["x"]],
             y=[pos["y"]],
             mode="markers",
             hoverinfo="skip",
             showlegend=False,
-            marker=dict(size=28, color=color_glow, line=dict(width=0))
+            marker=dict(size=26, color=color_glow, line=dict(width=0))
         ))
 
-        # 2. Main Lamp Marker
+        # Inti Lampu
         fig_map.add_trace(go.Scatter(
             x=[pos["x"]],
             y=[pos["y"]],
             mode="markers+text",
             name=machine_name,
-            text=[f" <b>{machine_name}</b> "],
+            text=[f"<b>{machine_name}</b>"],
             textposition="top center",
-            textfont=dict(color="#FFFFFF", size=10, family="Arial, sans-serif"),
+            textfont=dict(color="#000000", size=10, family="Arial, sans-serif"),
             marker=dict(
                 size=14,
                 color=color_main,
@@ -317,13 +324,13 @@ if page == "📊 Executive Dashboard":
             hovertext=f"<b>Mesin:</b> {machine_name}<br><b>Area:</b> {pos['line']}<br><b>Status:</b> {label_status}"
         ))
 
-    # Kunci Koordinat Sumbu X dan Y secara Absolut (Fixed Aspect Ratio)
+    # MANDATORI UNTUK LOCK KOORDINAT
     fig_map.update_xaxes(
         range=[0, img_width],
         showgrid=False,
         zeroline=False,
         showticklabels=False,
-        fixedrange=False
+        autorange=False
     )
     fig_map.update_yaxes(
         range=[0, img_height],
@@ -332,18 +339,18 @@ if page == "📊 Executive Dashboard":
         showticklabels=False,
         scaleanchor="x",
         scaleratio=1,
-        fixedrange=False
+        autorange=False
     )
 
     fig_map.update_layout(
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
-        height=550,
+        height=600,
         showlegend=False,
         margin=dict(l=0, r=0, t=0, b=0)
     )
 
-    st.plotly_chart(fig_map, use_container_width=True, config={'responsive': True, 'scrollZoom': True})
+    st.plotly_chart(fig_map, use_container_width=True, config={'responsive': True, 'displayModeBar': False})
 
     st.markdown("---")
 
