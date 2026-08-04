@@ -264,6 +264,9 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
 # ==========================================
 # 6. DASHBOARD UTAMA
 # ==========================================
+# ==========================================
+# 6. DASHBOARD UTAMA
+# ==========================================
 if page == "📊 Executive Dashboard":
     st.title("🛡️ Executive Maintenance")
     st.caption("Monitoring Performa Mesin & Plant Layout Map Real-Time")
@@ -283,7 +286,7 @@ if page == "📊 Executive Dashboard":
     st.subheader("🗺️ Plant Layout Map Real-Time")
     st.markdown("Indikator Warna: 🔴 **Part NG / Rusak** | 🟠 **Sedang Repair (On Progress)** | 🟢 **Ready / Normal Terpasang**")
 
-    # MENDETEKSI NAMA FILE GAMBAR DI GITHUB (Termasuk 'layout.png.png')
+    # MENDETEKSI NAMA FILE GAMBAR DI GITHUB
     folder_saat_ini = os.path.dirname(os.path.abspath(__file__))
     kemungkinan_nama_file = [
         "layout.png.png", "lay out.PNG.PNG", "lay out.png", "lay out.PNG", 
@@ -298,9 +301,89 @@ if page == "📊 Executive Dashboard":
             break
 
     if jalur_gambar:
-        st.image(jalur_gambar, caption="Layout Plant Produksi", use_container_width=True)
+        # Buka gambar untuk mendapatkan ukuran piksel aslinya
+        img_pil = Image.open(jalur_gambar)
+        img_width, img_height = img_pil.size
+
+        # Mapping posisi koordinat mesin di atas gambar layout (Skala Piksel Gambar)
+        # Anda bisa menyesuaikan angka X dan Y ini jika posisi titiknya ingin digeser
+        koordinat_mesin = {
+            "CRANK SHAFT LINE": {"x": img_width * 0.5, "y": img_height * 0.5},
+            "CYLINDER HEAD LINE": {"x": img_width * 0.5, "y": img_height * 0.3},
+            "CYLINDER BLOCK LINE": {"x": img_width * 0.5, "y": img_height * 0.7},
+            "QC 01": {"x": img_width * 0.3, "y": img_height * 0.4},
+            "ISP-017": {"x": img_width * 0.2, "y": img_height * 0.4},
+            "QC 02": {"x": img_width * 0.4, "y": img_height * 0.4},
+            "CAM SHAFT LINE": {"x": img_width * 0.4, "y": img_height * 0.6},
+            "Pos QC": {"x": img_width * 0.3, "y": img_height * 0.7},
+        }
+
+        # Tentukan status warna setiap mesin berdasarkan database
+        status_warna_default = "green" # Hijau (Ready)
+        marker_data = []
+
+        for m_name, pos in koordinat_mesin.items():
+            warna = "#22C55E" # Default Hijau
+            status_teks = "Ready / Normal"
+            
+            if not df.empty and "Mesin" in df.columns and "Status_Part" in df.columns:
+                df_m = df[df["Mesin"] == m_name]
+                if not df_m.empty:
+                    latest_status = df_m.iloc[0]["Status_Part"]
+                    if latest_status == "Part NG":
+                        warna = "#EF4444" # Merah
+                        status_teks = "Part NG / Rusak"
+                    elif latest_status == "Part Repair":
+                        warna = "#F97316" # Oren
+                        status_teks = "Sedang Repair"
+
+            marker_data.append({
+                "Mesin": m_name,
+                "x": pos["x"],
+                "y": pos["y"],
+                "color": warna,
+                "status": status_teks
+            })
+
+        df_marker = pd.DataFrame(marker_data)
+
+        # Buat Plotly Figure dengan background gambar layout
+        fig_layout = go.Figure()
+
+        # Tambahkan scatter plot titik indikator di atas gambar
+        fig_layout.add_trace(go.Scatter(
+            x=df_marker["x"],
+            y=df_marker["y"],
+            mode="markers+text",
+            text=df_marker["Mesin"],
+            textposition="top center",
+            marker=dict(size=16, color=df_marker["color"], line=dict(width=2, color="white")),
+            hovertext=df_marker["status"],
+            hoverinfo="text+name"
+        ))
+
+        # Konfigurasi layout gambar agar pas sebagai background peta
+        fig_layout.update_layout(
+            images=[dict(
+                source=img_pil,
+                xref="x", yref="y",
+                x=0, y=0,
+                sizex=img_width, sizey=img_height,
+                sizing="stretch",
+                opacity=1.0,
+                layer="below"
+            )],
+            xaxis=dict(showgrid=False, zeroline=False, range=[0, img_width], visible=False),
+            yaxis=dict(showgrid=False, zeroline=False, range=[img_height, 0], visible=False), # Dibalik agar koordinat Y pas dari atas ke bawah
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            height=600,
+            margin=dict(l=0, r=0, t=0, b=0)
+        )
+
+        st.plotly_chart(fig_layout, use_container_width=True)
     else:
-        st.error("⚠️ File gambar layout tidak ditemukan! Pastikan file berada di direktori utama repository GitHub Anda.")
+        st.error("⚠️ File gambar layout tidak ditemukan di repository GitHub!")
 
     st.markdown("---")
     st.subheader("📊 Analisis Grafik Performa & Status Maintenance")
