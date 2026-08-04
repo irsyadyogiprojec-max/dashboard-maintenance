@@ -468,28 +468,14 @@ elif page == "🛠️ Form Team Repair (Box NG & On Repair)":
                                     st.rerun()
 
 # ==========================================
-# 8. FORM 3: INSTALL MACHINE (BARU SESUAI PERMINTAAN)
+# 8. FORM 3: INSTALL MACHINE (TANPA SCAN/UPLOAD)
 # ==========================================
 elif page == "🟢 Form Install Machine (Ambil Box Ready)":
     st.title("🟢 Form Pemasangan Part ke Mesin (Install Machine)")
-    st.caption("MP scan barcode part dari Box Ready, pilih part yang sesuai, isi tanggal & nama MP, lalu pasang ke mesin agar status mesin jadi hijau.")
+    st.caption("Pilih part yang tersedia di Box Ready, isi tanggal & nama MP, lalu pasang ke mesin agar status mesin jadi hijau.")
 
     df_ready_box = df[df["Status_Part"] == "Part Ready"] if not df.empty and "Status_Part" in df.columns else pd.DataFrame()
 
-    uploader_key_inst = "uploader_key_inst"
-    if uploader_key_inst not in st.session_state: st.session_state[uploader_key_inst] = 0
-
-    uploaded_file_inst = st.file_uploader("📷 1. Scan Barcode / Foto Part dari Box Ready", type=["png", "jpg", "jpeg"], key=f"file_inst_{st.session_state[uploader_key_inst]}")
-
-    scanned_sn, scanned_name, scanned_type = "", "", ""
-    if uploaded_file_inst is not None:
-        image_inst = Image.open(uploaded_file_inst)
-        st.image(image_inst, caption="Foto Barcode Dipindai", width=160)
-        with st.spinner("🔍 Memindai Barcode/Teks..."):
-            scanned_name, scanned_type, scanned_sn = extract_text_from_image(image_inst)
-        st.success(f"✅ Terdeteksi dari Scan -> Nama: **{scanned_name}** | Type: **{scanned_type}** | SN: **{scanned_sn}**")
-
-    st.markdown("---")
     st.subheader("📦 Pilih Part yang Tersedia di Box Ready (Biru)")
 
     if df_ready_box.empty:
@@ -549,7 +535,6 @@ elif page == "🟢 Form Install Machine (Ambil Box Ready)":
                     }
 
                     if insert_data_to_supabase(payload_installed):
-                        st.session_state[uploader_key_inst] += 1
                         st.toast(f"✨ Part berhasil dipasang ke {mesin_tujuan}! Status mesin sekarang Hijau Normal.", icon="✅")
                         st.rerun()
 
