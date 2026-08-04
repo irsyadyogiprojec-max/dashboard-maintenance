@@ -7,6 +7,8 @@ import os
 import re
 import numpy as np
 from supabase import create_client, Client
+import io
+import base64
 
 # Import EasyOCR (Optional fallback)
 try:
@@ -122,9 +124,12 @@ def load_data_from_supabase():
             col_map = {
                 "id": "ID", "tanggal": "Tanggal", "mesin": "Mesin", "kategori": "Kategori",
                 "status_part": "Status_Part", "no_seri": "No_Seri",
-                "nama_part": "Nama_Part", "type_part": "Type", "qty": "Qty", "teknisi": "Teknisi"
+                "nama_part": "Nama_Part", "type_part": "Type", "qty": "Qty", "teknisi": "Teknisi",
+                "foto_base64": "Foto_Base64"
             }
-            return df_res.rename(columns=col_map)
+            # Rename columns safely if they exist
+            existing_cols = {k: v for k, v in col_map.items() if k in df_res.columns}
+            return df_res.rename(columns=existing_cols)
         return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
@@ -135,7 +140,8 @@ def insert_data_to_supabase(record):
     try:
         supabase.table("maintenance_log").insert(record).execute()
         return True
-    except Exception:
+    except Exception as e:
+        st.error(f"Gagal menyimpan ke database: {e}")
         return False
 
 def delete_data_from_supabase(row_id):
@@ -155,7 +161,7 @@ MACHINE_LIST = [
     "CYLINDER BLOCK LINE", "Pos QC", "Mesin Lainnya"
 ]
 
-# Deteksi Jalur Gambar Layout secara Global
+# Deteksi Jalur Gambar Layout untuk Dashboard
 folder_saat_ini = os.path.dirname(os.path.abspath(__file__))
 kemungkinan_nama_file = [
     "layout.png.png", "lay out.PNG.PNG", "lay out.png", "lay out.PNG", 
@@ -242,9 +248,17 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
     uploaded_file = st.file_uploader("📷 Upload Foto Part / Label Seri", type=["png", "jpg", "jpeg"], key=f"file_{status_part_default}_{st.session_state[uploader_key]}")
     
     scanned_sn, scanned_name, scanned_type = "", "", ""
+    encoded_image_str = ""
+    
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Foto Part Diunggah", width=160)
+        
+        # Konversi gambar ke base64 agar bisa disimpan di text column database Supabase
+        buffered = io.BytesIO()
+        image.save(buffered, format="JPEG")
+        encoded_image_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        
         with st.spinner("🔍 Memindai Teks..."):
             scanned_name, scanned_type, scanned_sn = extract_text_from_image(image)
         st.success("✅ Auto-Scan Berhasil!")
@@ -267,7 +281,8 @@ def render_input_form(status_part_default, kategori_default, title_text, color_t
                 "tanggal": str(tanggal), "mesin": mesin, "kategori": kategori_default,
                 "status_part": status_part_default, "no_seri": no_seri if no_seri else "-",
                 "nama_part": nama_part if nama_part else "-", "type_part": type_part if type_part else "-",
-                "qty": int(qty), "teknisi": teknisi if teknisi else "-"
+                "qty": int(qty), "teknisi": teknisi if teknisi else "-",
+                "foto_base64": encoded_image_str
             }
             if insert_data_to_supabase(payload):
                 st.session_state[uploader_key] += 1
@@ -382,7 +397,9 @@ if page == "📊 Executive Dashboard":
 
     st.markdown("---")
     st.subheader("📋 Log Maintenance Terakhir")
-    st.dataframe(df, use_container_width=True)
+    # Sembunyikan kolom foto_base64 yang panjang di dataframe utama agar rapi
+    df_display = df.drop(columns=["Foto_Base64"], errors="ignore")
+    st.dataframe(df_display, use_container_width=True)
 
 # ==========================================
 # 7. FORM REPAIR (AMBIL DARI BOX NG)
@@ -423,8 +440,17 @@ elif page == "🛠️ Form Repair (Ambil dari Box NG)":
                     * **Pelapor / Teknisi Awal:** {selected_data['Teknisi']}
                     """)
                     
-                    if jalur_gambar and os.path.exists(jalur_gambar):
-                        st.image(jalur_gambar, caption="Visualisasi Layout / Referensi Fisik", width=260)
+                    # Tampilkan FOTO ASLI part yang di-upload dari database (jika ada)
+                    foto_b64 = selected_data.get("Foto_Base64", "")
+                    if foto_b64 and isinstance(foto_b64, str) and len(foto_b64) > 10:
+                        try:
+                            image_bytes = base64.b64decode(foto_b64)
+                            image_part = Image.open(io.BytesIO(image_bytes))
+                            st.image(image_part, caption="Foto Fisik Part (Saat Input NG)", width=260)
+                        except Exception:
+                            st.warning("⚠️ Gagal memuat foto fisik part.")
+                    else:
+                        st.info("ℹ️ Tidak ada foto fisik yang di-upload untuk part ini.")
 
                 with col_info2:
                     st.markdown("### ⚙️ Eksekusi Perbaikan (Repair Action)")
@@ -449,7 +475,8 @@ elif page == "🛠️ Form Repair (Ambil dari Box NG)":
                                 "nama_part": selected_data['Nama_Part'],
                                 "type_part": selected_data['Type'],
                                 "qty": int(selected_data['Qty']),
-                                "teknisi": teknisi_repair if teknisi_repair else "-"
+                                "teknisi": teknisi_repair if teknisi_repair else "-",
+                                "foto_base64": selected_data.get("Foto_Base64", "")
                             }
                             
                             if insert_data_to_supabase(payload):
@@ -472,7 +499,8 @@ elif page == "🔒 Area Khusus Admin":
     
     if not df.empty:
         st.subheader("📥 Export Data")
-        csv = df.to_csv(index=False).encode('utf-8')
+        df_export = df.drop(columns=["Foto_Base64"], errors="ignore")
+        csv = df_export.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Data Full (CSV)", data=csv, file_name='maintenance_log_report.csv', mime='text/csv')
         
         st.markdown("---")
